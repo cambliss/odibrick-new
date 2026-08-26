@@ -5,7 +5,8 @@
   "description": "Odibrick — an end-to-end property rental and transaction platform by Cambliss Pvt. Ltd.",
   "workspaces": ["apps/api", "apps/web", "packages/*"],
   "overrides": {
-    "multer": "2.2.0"
+    "multer": "2.2.0",
+    "postcss": "8.5.22"
   },
   "engines": {
     "node": ">=20.10.0"
