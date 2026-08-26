@@ -1,0 +1,38 @@
+# systemd alternative to PM2 for the API.
+#   sudo cp deploy/odibrick-api.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now odibrick-api
+
+[Unit]
+Description=Odibrick API (NestJS)
+Documentation=https://odibrick.com
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=odibrick
+Group=odibrick
+WorkingDirectory=/var/www/odibrick/apps/api
+EnvironmentFile=/var/www/odibrick/apps/api/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/main.js
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/odibrick/api.out.log
+StandardError=append:/var/log/odibrick/api.error.log
+
+# The API only ever needs to write to its own storage directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/odibrick/storage /var/log/odibrick
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target
