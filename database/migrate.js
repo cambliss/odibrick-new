@@ -20,14 +20,18 @@ const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
 async function main() {
   const statusOnly = process.argv.includes('--status');
+  const ca =
+    process.env.DB_SSL_CA_CERT ||
+    (process.env.DB_SSL_CA && fs.existsSync(process.env.DB_SSL_CA)
+      ? fs.readFileSync(process.env.DB_SSL_CA, 'utf8')
+      : undefined);
+
   const ssl =
     process.env.DB_SSL === 'true' || process.env.DB_SSL === '1'
       ? {
           minVersion: 'TLSv1.2',
           rejectUnauthorized: true,
-          ...(process.env.DB_SSL_CA && fs.existsSync(process.env.DB_SSL_CA)
-            ? { ca: fs.readFileSync(process.env.DB_SSL_CA, 'utf8') }
-            : {}),
+          ...(ca ? { ca } : {}),
         }
       : undefined;
 

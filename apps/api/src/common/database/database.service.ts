@@ -16,11 +16,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     const db = this.config.get('db');
+    const ca =
+      db.sslCaCert ||
+      (db.sslCa && fs.existsSync(db.sslCa) ? fs.readFileSync(db.sslCa, 'utf8') : undefined);
+
     const ssl = db.ssl
       ? {
           minVersion: 'TLSv1.2',
           rejectUnauthorized: true,
-          ...(db.sslCa && fs.existsSync(db.sslCa) ? { ca: fs.readFileSync(db.sslCa, 'utf8') } : {}),
+          ...(ca ? { ca } : {}),
         }
       : undefined;
 
