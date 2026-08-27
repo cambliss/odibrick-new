@@ -21,6 +21,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       user: db.user,
       password: db.password,
       database: db.database,
+      ssl: db.ssl ? { minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined,
       waitForConnections: true,
       connectionLimit: db.connectionLimit,
       maxIdle: db.connectionLimit,

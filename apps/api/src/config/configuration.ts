@@ -23,6 +23,7 @@ export default () => ({
     user: process.env.DB_USER ?? 'odibrick',
     password: process.env.DB_PASSWORD ?? '',
     database: process.env.DB_NAME ?? 'odibrick',
+    ssl: process.env.DB_SSL === 'true' || process.env.DB_SSL === '1',
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT ?? '15', 10),
   },
   auth: {

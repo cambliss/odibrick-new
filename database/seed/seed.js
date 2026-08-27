@@ -36,14 +36,19 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const between = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const round = (n, to) => Math.round(n / to) * to;
 const daysFromNow = (d) => new Date(Date.now() + d * 86400000).toISOString().slice(0, 10);
-
 async function main() {
+  const ssl =
+    process.env.DB_SSL === 'true' || process.env.DB_SSL === '1'
+      ? { minVersion: 'TLSv1.2', rejectUnauthorized: true }
+      : undefined;
+
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST || '127.0.0.1',
     port: Number(process.env.DB_PORT || 3306),
     user: process.env.DB_USER || 'odibrick',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'odibrick',
+    ssl,
     multipleStatements: false,
   });
 
