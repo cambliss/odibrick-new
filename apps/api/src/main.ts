@@ -39,8 +39,8 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   const port = config.get<number>('app.port')!;
-  await app.listen(port, '127.0.0.1');
-  logger.log(`Odibrick API listening on 127.0.0.1:${port}/${config.get('app.prefix')}`);
+  await app.listen(port, '0.0.0.0');
+  logger.log(`Odibrick API listening on 0.0.0.0:${port}/${config.get('app.prefix')}`);
 }
 
 bootstrap();

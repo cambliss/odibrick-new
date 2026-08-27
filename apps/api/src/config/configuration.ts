@@ -9,7 +9,7 @@ export interface AppConfig {
 export default () => ({
   app: {
     env: process.env.NODE_ENV ?? 'development',
-    port: parseInt(process.env.API_PORT ?? '4000', 10),
+    port: parseInt(process.env.PORT ?? process.env.API_PORT ?? '4000', 10),
     prefix: process.env.API_PREFIX ?? 'api',
     webUrl: process.env.PUBLIC_WEB_URL ?? 'http://localhost:3000',
     corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:3000')
