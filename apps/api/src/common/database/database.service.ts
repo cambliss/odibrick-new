@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import mysql, { Pool, PoolConnection, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
@@ -15,13 +16,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     const db = this.config.get('db');
+    const ssl = db.ssl
+      ? {
+          minVersion: 'TLSv1.2',
+          rejectUnauthorized: true,
+          ...(db.sslCa && fs.existsSync(db.sslCa) ? { ca: fs.readFileSync(db.sslCa, 'utf8') } : {}),
+        }
+      : undefined;
+
     this.pool = mysql.createPool({
       host: db.host,
       port: db.port,
       user: db.user,
       password: db.password,
       database: db.database,
-      ssl: db.ssl ? { minVersion: 'TLSv1.2', rejectUnauthorized: true } : undefined,
+      ssl,
       waitForConnections: true,
       connectionLimit: db.connectionLimit,
       maxIdle: db.connectionLimit,

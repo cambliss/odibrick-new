@@ -22,7 +22,13 @@ async function main() {
   const statusOnly = process.argv.includes('--status');
   const ssl =
     process.env.DB_SSL === 'true' || process.env.DB_SSL === '1'
-      ? { minVersion: 'TLSv1.2', rejectUnauthorized: true }
+      ? {
+          minVersion: 'TLSv1.2',
+          rejectUnauthorized: true,
+          ...(process.env.DB_SSL_CA && fs.existsSync(process.env.DB_SSL_CA)
+            ? { ca: fs.readFileSync(process.env.DB_SSL_CA, 'utf8') }
+            : {}),
+        }
       : undefined;
 
   const conn = await mysql.createConnection({
