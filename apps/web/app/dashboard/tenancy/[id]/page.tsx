@@ -10,6 +10,11 @@ import { inr, shortDate, titleCase } from '@/lib/format';
 export const metadata: Metadata = { title: 'Tenancy', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
+import { RenewalCard } from './renewal-card';
+import { MoveOutCard } from './move-out-card';
+import { AdminOverrideCard } from './admin-override-card';
+import { FinancialPositionCard, TenancyFinancialSummary } from './financial-position-card';
+
 type TenancyDetail = {
   tenancy: {
     id: number;
@@ -33,8 +38,49 @@ type TenancyDetail = {
     is_owner: boolean;
   };
   nextAction?: { label: string; href: string; detail?: string };
-  agreement?: { id: number; agreement_number: string; status: string; executed_at?: string };
-  legalCase?: { id: number; case_number: string; status: string };
+  agreement?: { id: number; agreement_number: string; agreement_type?: string; status: string; executed_at?: string };
+  agreements?: Array<{ id: number; agreement_number: string; agreement_type?: string; status: string; executed_at?: string }>;
+  legalCase?: { id: number; case_number: string; case_type?: string; status: string };
+  legalCases?: Array<{ id: number; case_number: string; case_type?: string; status: string }>;
+  renewalProposal?: {
+    proposedRent?: number;
+    proposedStartDate?: string;
+    proposedEndDate?: string;
+    tenureMonths?: number;
+    proposedBy?: number;
+    proposerRole?: string;
+    notes?: string;
+    proposedAt?: string;
+  };
+  moveOutNotice?: {
+    requestedBy?: number;
+    requesterRole?: 'TENANT' | 'OWNER';
+    requestedMoveOutDate?: string;
+    reason?: string;
+    noticePeriodDays?: number;
+    status?: 'REQUESTED' | 'CONFIRMED';
+    confirmedBy?: number;
+    confirmedAt?: string;
+    requestedAt?: string;
+  };
+  settlementProposal?: {
+    depositAmount: number;
+    deductions: Array<{
+      category: 'DAMAGE' | 'UNPAID_RENT' | 'MAINTENANCE' | 'OTHER';
+      description: string;
+      amount: number;
+      evidenceUrl?: string;
+    }>;
+    totalDeductions: number;
+    refundAmount: number;
+    notes?: string;
+    proposedBy: number;
+    proposerRole: string;
+    proposedAt: string;
+    status: 'PROPOSED' | 'ACCEPTED' | 'DISPUTED';
+    acceptedBy?: number;
+    acceptedAt?: string;
+  };
   payments: Array<{ id: number; reference_code: string; purpose: string; total_amount: number; status: string; due_date?: string }>;
   inspections: Array<{ id: number; report_number: string; kind: string; status: string; submitted_at?: string; media_count: number }>;
   maintenance: Array<{ id: number; ticket_number: string; title: string; status: string; priority: string }>;
@@ -43,8 +89,14 @@ type TenancyDetail = {
 
 export default async function TenancyPage({ params }: { params: { id: string } }) {
   let data: TenancyDetail;
+  let financials: TenancyFinancialSummary | null = null;
   try {
-    data = await serverApi<TenancyDetail>(`/tenancies/${params.id}`);
+    const [detailRes, financialRes] = await Promise.all([
+      serverApi<TenancyDetail>(`/tenancies/${params.id}`),
+      serverApi<TenancyFinancialSummary>(`/tenancies/${params.id}/financial-summary`).catch(() => null),
+    ]);
+    data = detailRes;
+    financials = financialRes;
   } catch (error) {
     if (error instanceof ApiError && [403, 404].includes(error.status)) notFound();
     throw error;
@@ -75,7 +127,7 @@ export default async function TenancyPage({ params }: { params: { id: string } }
 
       {data.nextAction ? (
         <Link
-          href={data.nextAction.href}
+          href={data.nextAction.href || `/dashboard/tenancy/${tenancy.id}`}
           className="flex items-center justify-between gap-4 rounded-card border border-ochre/40 bg-ochre-soft px-5 py-4 transition-colors hover:border-ochre"
         >
           <div>
@@ -93,6 +145,11 @@ export default async function TenancyPage({ params }: { params: { id: string } }
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
         <div className="space-y-6">
+          {/* ---------------------------------------------------- financial position */}
+          {financials ? (
+            <FinancialPositionCard financials={financials} />
+          ) : null}
+
           {/* -------------------------------------------------------- record */}
           <Card>
             <CardHeader
@@ -188,8 +245,8 @@ export default async function TenancyPage({ params }: { params: { id: string } }
               {tenancy.maintenance_amount ? (
                 <DataRow label="Maintenance" value={inr(tenancy.maintenance_amount)} />
               ) : null}
-              <DataRow label="Start" value={shortDate(tenancy.start_date)} />
-              <DataRow label="End" value={shortDate(tenancy.end_date)} />
+              <DataRow label="Start" value={tenancy.start_date ? shortDate(tenancy.start_date) : 'Pending agreement'} />
+              <DataRow label="End" value={tenancy.end_date ? shortDate(tenancy.end_date) : 'Pending agreement'} />
               <DataRow
                 label="Lock-in"
                 value={tenancy.lock_in_months ? `${tenancy.lock_in_months} months` : '—'}
@@ -198,13 +255,66 @@ export default async function TenancyPage({ params }: { params: { id: string } }
                 label="Notice"
                 value={tenancy.notice_period_days ? `${tenancy.notice_period_days} days` : '—'}
               />
-              <DataRow label="Renewal due" value={shortDate(tenancy.renewal_due_on)} />
+              <DataRow
+                label="Renewal due"
+                value={tenancy.renewal_due_on ? shortDate(tenancy.renewal_due_on) : 'Set after agreement execution'}
+              />
             </dl>
           </Card>
 
+          {/* Move-Out & Deposit Settlement Card */}
+          <MoveOutCard
+            tenancy={tenancy}
+            agreement={data.agreement}
+            moveOutNotice={data.moveOutNotice}
+            settlementProposal={data.settlementProposal}
+            inspections={data.inspections}
+            payments={data.payments}
+          />
+
+          {/* Lease Renewal Card */}
+          <RenewalCard
+            tenancy={tenancy}
+            agreement={data.agreement}
+            agreements={data.agreements}
+            legalCase={data.legalCase}
+            legalCases={data.legalCases}
+            renewalProposal={data.renewalProposal}
+          />
+
+          {/* Central Governance & Management Authority Card */}
+          <AdminOverrideCard tenancyId={tenancy.id} stage={tenancy.stage} />
+
+
           <Card className="p-5">
-            <p className="eyebrow">Agreement</p>
-            {data.agreement ? (
+            <p className="eyebrow">Agreements</p>
+            {(data.agreements && data.agreements.length > 0) ? (
+              <div className="mt-3 space-y-3 divide-y divide-line">
+                {data.agreements.map((agr) => (
+                  <div key={agr.id} className="pt-2 first:pt-0">
+                    <div className="flex items-center justify-between">
+                      <p className="font-mono text-[13px] font-semibold">{agr.agreement_number}</p>
+                      <StatusChip status={agr.status} />
+                    </div>
+                    <p className="text-[12px] text-muted mt-0.5">
+                      Type: {agr.agreement_type ? agr.agreement_type.replace(/_/g, ' ') : 'LEAVE AND LICENSE'}
+                    </p>
+                    {agr.status === 'EXECUTED' && agr.executed_at ? (
+                      <p className="text-[11px] text-muted">Executed: {shortDate(agr.executed_at)}</p>
+                    ) : null}
+                    <Button
+                      href={`/dashboard/agreements/${agr.id}`}
+                      variant="secondary"
+                      size="sm"
+                      full
+                      className="mt-2"
+                    >
+                      {agr.status === 'AWAITING_SIGNATURES' ? 'Review and sign' : 'Open agreement'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : data.agreement ? (
               <>
                 <p className="mt-2 font-mono text-[13px]">{data.agreement.agreement_number}</p>
                 <div className="mt-2">

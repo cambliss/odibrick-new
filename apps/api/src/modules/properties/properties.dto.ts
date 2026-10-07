@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import {
-  IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional,
+  IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional,
   IsString, Max, MaxLength, Min, MinLength,
 } from 'class-validator';
 
@@ -32,6 +32,8 @@ export class CreatePropertyDto {
   @IsOptional() @IsIn(['MONTHLY','QUARTERLY','YEARLY','INCLUDED','NONE']) maintenancePeriod?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(60) lockInMonths?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(365) noticePeriodDays?: number;
+  @IsOptional() @IsBoolean() priceNegotiable?: boolean;
+  @IsOptional() @IsBoolean() nonVegAllowed?: boolean;
 
   @IsOptional() @IsString() @MaxLength(190) addressLine1?: string;
   @IsOptional() @IsString() @MaxLength(190) addressLine2?: string;
@@ -106,3 +108,30 @@ export class VerificationCheckDto {
   @IsIn(['PENDING','IN_REVIEW','VERIFIED','FAILED','EXPIRED']) status!: string;
   @IsOptional() @IsString() @MaxLength(500) notes?: string;
 }
+
+export class AttachImageDto {
+  @IsString() storageKey!: string;
+  @IsOptional() @IsString() @MaxLength(200) caption?: string;
+  @IsOptional() @IsString() @MaxLength(60) roomTag?: string;
+}
+
+export class ReorderImagesDto {
+  @IsArray()
+  @IsInt({ each: true })
+  imageIds!: number[];
+}
+
+export class ArchivePropertyDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
+  reason!: string;
+}
+
+export class RemovePropertyDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}
+

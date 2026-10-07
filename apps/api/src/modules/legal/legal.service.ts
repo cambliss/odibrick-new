@@ -73,30 +73,32 @@ export class LegalService {
 
   async caseDetail(user: AuthUser, id: number) {
     const legalCase = await this.db.one<any>(
-      `SELECT lc.*, t.id AS tenancy_id, t.stage, t.rent_amount, t.deposit_amount, t.maintenance_amount,
+      `SELECT lc.*, assignee.full_name AS assignee_name, assignee.email AS assignee_email,
+              t.id AS tenancy_id, t.stage, t.rent_amount, t.deposit_amount, t.maintenance_amount,
               t.start_date, t.end_date, t.lock_in_months, t.notice_period_days, t.service_plan,
               t.owner_user_id, t.tenant_user_id,
               p.id AS property_id, p.title AS property_title, p.address_line1, p.locality, p.city,
               p.state, p.pincode, p.furnishing, p.bedrooms,
-              own.full_name AS owner_name, own.email AS owner_email,
-              ten.full_name AS tenant_name, ten.email AS tenant_email
+              own.full_name AS owner_name, own.email AS owner_email, own.phone AS owner_phone,
+              ten.full_name AS tenant_name, ten.email AS tenant_email, ten.phone AS tenant_phone
          FROM legal_cases lc
          JOIN tenancies t ON t.id = lc.tenancy_id
          JOIN properties p ON p.id = t.property_id
          JOIN users own ON own.id = t.owner_user_id
          JOIN users ten ON ten.id = t.tenant_user_id
+         LEFT JOIN users assignee ON assignee.id = lc.assigned_to
         WHERE lc.id = ?`,
       [id],
     );
     if (!legalCase) throw new NotFoundException('Case not found.');
     this.assertCaseAccess(user, legalCase);
 
-    const [agreements, meetings, notes, kyc, documents] = await Promise.all([
+    const [agreements, meetings, notes, kyc, documents, timeline, advocates, signatories] = await Promise.all([
       this.db.query(
         `SELECT id, public_id, agreement_number, status, current_version, approved_at, executed_at,
                 stamp_duty_status FROM agreements WHERE legal_case_id = ? ORDER BY id DESC`, [id]),
       this.db.query(
-        `SELECT id, public_id, purpose, scheduled_for, duration_min, status, provider, agenda
+        `SELECT id, public_id, purpose, scheduled_for, duration_min, status, provider, agenda, outcome_notes
            FROM legal_meetings WHERE legal_case_id = ? ORDER BY scheduled_for DESC`, [id]),
       this.db.query(
         `SELECT ln.id, ln.body, ln.visibility, ln.created_at, u.full_name AS author
@@ -112,9 +114,32 @@ export class LegalService {
               OR (entity_type = 'property' AND entity_id = ?)
           ORDER BY created_at DESC`,
         [legalCase.tenancy_id, legalCase.property_id]),
+      this.db.query(
+        `SELECT event_code, title, detail, occurred_at FROM property_timeline
+          WHERE tenancy_id = ? OR property_id = ?
+          ORDER BY occurred_at DESC LIMIT 30`,
+        [legalCase.tenancy_id, legalCase.property_id]),
+      this.db.query(
+        `SELECT u.id, u.full_name, u.email FROM users u
+           JOIN user_roles ur ON ur.user_id = u.id
+           JOIN roles r ON r.id = ur.role_id
+          WHERE r.code = 'LEGAL_TEAM' AND u.status = 'ACTIVE'
+          ORDER BY u.full_name ASC`),
+      this.db.query(
+        `SELECT s.id, s.agreement_id, s.party_role, s.status, s.signed_at, s.sign_order, u.full_name
+           FROM agreement_signatories s
+           JOIN users u ON u.id = s.user_id
+           JOIN agreements a ON a.id = s.agreement_id
+          WHERE a.legal_case_id = ?
+          ORDER BY s.sign_order`, [id]),
     ]);
 
-    return { case: legalCase, agreements, meetings, notes, kyc, documents };
+    const agreementsWithSignatories = agreements.map((agr: any) => ({
+      ...agr,
+      signatories: (signatories as any[]).filter((s) => s.agreement_id === agr.id),
+    }));
+
+    return { case: legalCase, agreements: agreementsWithSignatories, meetings, notes, kyc, documents, timeline, advocates };
   }
 
   async assign(user: AuthUser, id: number, dto: AssignCaseDto, req?: Request) {
@@ -176,7 +201,7 @@ export class LegalService {
         agreement_number: formatReference('AGR', (seq?.c ?? 0) + 1),
         tenancy_id: legalCase.tenancy_id,
         legal_case_id: caseId,
-        agreement_type: dto.agreementType ?? 'LEAVE_AND_LICENSE',
+        agreement_type: dto.agreementType ?? (legalCase.case_type === 'RENEWAL' ? 'RENEWAL' : 'LEAVE_AND_LICENSE'),
         status: 'DRAFT',
         current_version: 0,
         effective_from: dto.effectiveFrom ?? legalCase.start_date,
@@ -304,11 +329,11 @@ export class LegalService {
     );
     if (!agreement) throw new NotFoundException('Agreement not found.');
     const isParty = [agreement.owner_user_id, agreement.tenant_user_id].includes(user.id);
-    if (!isParty && !user.permissions.includes('legal.case.manage')) {
+    if (!isParty && !user.permissions.includes('legal.case.manage') && !user.permissions.includes('agreement.draft') && !user.permissions.includes('agreement.approve')) {
       throw new ForbiddenException('This agreement belongs to other parties.');
     }
 
-    const [version, clauses, signatories] = await Promise.all([
+    const [version, clauses, signatories, versions] = await Promise.all([
       this.db.one(
         `SELECT version, body_html, variables, change_summary, drafted_with_ai, reviewed_at
            FROM agreement_versions WHERE agreement_id = ? AND version = ?`,
@@ -317,9 +342,16 @@ export class LegalService {
         'SELECT title, body, sort_order FROM agreement_clauses WHERE agreement_id = ? ORDER BY sort_order',
         [agreementId]),
       this.db.query(
-        `SELECT s.id, s.party_role, s.status, s.signed_at, s.sign_order, u.full_name, u.public_id
+        `SELECT s.id, s.user_id, s.party_role, s.status, s.signed_at, s.sign_order, u.full_name, u.public_id
            FROM agreement_signatories s JOIN users u ON u.id = s.user_id
           WHERE s.agreement_id = ? ORDER BY s.sign_order`,
+        [agreementId]),
+      this.db.query(
+        `SELECT av.version, av.change_summary, av.drafted_with_ai, av.reviewed_at, av.created_at,
+                drafter.full_name AS drafter_name
+           FROM agreement_versions av
+           LEFT JOIN users drafter ON drafter.id = av.drafted_by
+          WHERE av.agreement_id = ? ORDER BY av.version DESC`,
         [agreementId]),
     ]);
 
@@ -328,6 +360,7 @@ export class LegalService {
       version,
       clauses,
       signatories,
+      versions,
       // The UI must not present an unexecuted document as an enforceable contract.
       legalStatus:
         agreement.status === 'EXECUTED'
@@ -381,9 +414,51 @@ export class LegalService {
 
     await this.db.update('agreements', agreementId, { status: 'EXECUTED', executed_at: new Date() });
     await this.db.update('legal_cases', agreement.legal_case_id, { status: 'EXECUTED', closed_at: new Date() });
-    await this.db.update('tenancies', agreement.tenancy_id, { stage: 'AWAITING_PAYMENT' });
 
     const tenancy = await this.db.one<any>('SELECT * FROM tenancies WHERE id = ?', [agreement.tenancy_id]);
+    const isRenewal = agreement.agreement_type === 'RENEWAL';
+
+    if (isRenewal) {
+      const currentVer = await this.db.one<any>(
+        'SELECT variables FROM agreement_versions WHERE agreement_id = ? AND version = ?',
+        [agreementId, agreement.current_version],
+      );
+      let vars: any = {};
+      if (currentVer?.variables) {
+        vars = typeof currentVer.variables === 'string' ? JSON.parse(currentVer.variables) : currentVer.variables;
+      }
+      const newRent = Number(vars.rent_amount ?? tenancy.rent_amount);
+      const newEndDate = agreement.effective_to ? agreement.effective_to : (vars.effective_to ?? tenancy.end_date);
+      const newRenewalDueOn = newEndDate;
+
+      await this.db.update('tenancies', agreement.tenancy_id, {
+        stage: 'ACTIVE',
+        rent_amount: newRent,
+        end_date: newEndDate,
+        renewal_due_on: newRenewalDueOn,
+      });
+
+      await this.db.insert('property_timeline', {
+        property_id: tenancy.property_id,
+        tenancy_id: tenancy.id,
+        event_code: 'RENEWAL',
+        title: 'Lease renewal executed',
+        detail: `Renewal agreement ${agreement.agreement_number} executed. Term renewed until ${newEndDate}.`,
+        actor_id: user.id,
+      });
+
+      await this.notify.sendMany([tenancy.owner_user_id, tenancy.tenant_user_id], 'AGREEMENT_READY', {
+        title: 'Lease renewal executed',
+        body: `Renewal agreement ${agreement.agreement_number} has been executed by all parties. Your tenancy continues seamlessly.`,
+        actionUrl: `/dashboard/tenancy/${tenancy.id}`,
+        severity: 'INFO',
+      });
+      await this.audit.record({ actor: user, action: 'agreement.renewal_executed', objectType: 'agreement', objectId: agreementId, req });
+      return { status: 'EXECUTED' };
+    }
+
+    await this.db.update('tenancies', agreement.tenancy_id, { stage: 'AWAITING_PAYMENT' });
+
     await this.db.insert('property_timeline', {
       property_id: tenancy.property_id,
       tenancy_id: tenancy.id,

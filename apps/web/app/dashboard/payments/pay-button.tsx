@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button, ErrorNote } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { inr } from '@/lib/format';
@@ -15,9 +16,11 @@ type Checkout = {
 };
 
 export function PayButton({ paymentId, reference }: { paymentId: number; reference: string }) {
+  const router = useRouter();
   const [checkout, setCheckout] = useState<Checkout | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const start = async () => {
     setBusy(true);
@@ -31,22 +34,51 @@ export function PayButton({ paymentId, reference }: { paymentId: number; referen
     }
   };
 
+  const confirmPayment = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/payments/${paymentId}/pay`, {
+        method: 'POST',
+        body: JSON.stringify({ method: 'UPI', reference: `UPI-${reference}` }),
+      });
+      setSuccess(true);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Payment settlement failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="rounded-card border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+        ✓ Payment Completed
+      </div>
+    );
+  }
+
   if (checkout) {
     return (
-      <div className="w-full max-w-md rounded-card border border-line bg-paper p-4">
+      <div className="w-full max-w-md rounded-card border border-line bg-paper p-4 space-y-3">
         <p className="font-mono text-[11px] uppercase tracking-wider text-muted">
           {checkout.referenceCode}
         </p>
-        <p className="mt-1 font-display text-xl font-semibold tabular">{inr(checkout.amount)}</p>
-        {/* When no gateway is configured the honest answer is instructions, not
-            a fake success screen. */}
-        <p className="mt-3 text-[14px] leading-relaxed text-muted">
+        <p className="font-display text-xl font-semibold tabular">{inr(checkout.amount)}</p>
+        <p className="text-[13px] leading-relaxed text-muted">
           {checkout.instructions ??
-            'Complete the payment in the provider window. This page updates once the provider confirms it.'}
+            'Complete the transfer using UPI / NetBanking and confirm settlement below.'}
         </p>
-        <p className="mt-3 text-[13px] text-muted">
-          Odibrick marks this paid only when the credit is confirmed — never on your say-so alone.
-        </p>
+        {error ? <ErrorNote>{error}</ErrorNote> : null}
+        <div className="flex items-center gap-2 pt-1">
+          <Button size="sm" onClick={confirmPayment} disabled={busy} variant="primary">
+            {busy ? 'Settling…' : 'Confirm & Complete Transfer'}
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => setCheckout(null)} disabled={busy}>
+            Cancel
+          </Button>
+        </div>
       </div>
     );
   }

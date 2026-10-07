@@ -85,11 +85,13 @@ export function Badge({
 
 /* ------------------------------------------------------------ status chips */
 const STATUS_TONES: Record<string, 'neutral' | 'seal' | 'ochre' | 'alert' | 'info'> = {
-  ACTIVE: 'seal', VERIFIED: 'seal', PAID: 'seal', EXECUTED: 'seal', ACKNOWLEDGED: 'seal', COMPLETED: 'seal',
-  DRAFT: 'neutral', CLOSED: 'neutral', ARCHIVED: 'neutral',
+  ACTIVE: 'seal', VERIFIED: 'seal', PAID: 'seal', EXECUTED: 'seal', ACKNOWLEDGED: 'seal', COMPLETED: 'seal', RESOLVED: 'seal',
+  DRAFT: 'neutral', CLOSED: 'neutral', ARCHIVED: 'neutral', WITHDRAWN: 'neutral',
   PENDING_VERIFICATION: 'ochre', SUBMITTED: 'ochre', DUE: 'ochre', AWAITING_SIGNATURES: 'ochre',
   AWAITING_PAYMENT: 'ochre', CHECK_IN_PENDING: 'ochre', OWNER_REVIEW: 'ochre', IN_REVIEW: 'ochre',
+  OPEN: 'ochre', UNDER_REVIEW: 'ochre', EVIDENCE_SUBMITTED: 'info', RESOLUTION_PROPOSED: 'info',
   REJECTED: 'alert', FAILED: 'alert', DISPUTED: 'alert', OVERDUE: 'alert', SUSPENDED: 'alert',
+  LEGAL_REVIEW: 'alert', ESCALATED_EXTERNALLY: 'alert',
 };
 
 export function StatusChip({ status }: { status?: string | null }) {

@@ -1,13 +1,20 @@
 import { Body, Controller, Get, Headers, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
 import { PaymentsService } from './payments.service';
+import { PaymentReminderService } from './payment-reminder.service';
 import { RecordPaymentDto, RefundDto } from './payments.dto';
 import { CurrentUser, Public, RequirePermissions } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
 
+import { InvoicesService } from './invoices.service';
+
 @Controller()
 export class PaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    private readonly reminderService: PaymentReminderService,
+    private readonly invoices: InvoicesService,
+  ) {}
 
   @Get('payments')
   list(
@@ -24,9 +31,45 @@ export class PaymentsController {
     return this.payments.ledger(id, user);
   }
 
+  @Get('payments/:id/invoice')
+  async paymentInvoice(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    await this.payments.ledger(id, user);
+    return this.invoices.getInvoiceByPaymentId(user, id);
+  }
+
+  @Get('payments/:id/reminders')
+  async reminders(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
+    await this.payments.ledger(id, user);
+    return this.reminderService.getPaymentReminders(id);
+  }
+
   @Post('payments/:id/checkout')
   checkout(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.payments.startCheckout(user, id);
+  }
+
+  @Post('payments/:id/pay')
+  pay(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: { method?: string; reference?: string },
+    @Req() req: Request,
+  ) {
+    return this.payments.settleByPayer(user, id, dto, req);
+  }
+
+  @Post('payments/generate-rent')
+  generateRent(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: { tenancyId?: number; year?: number; month?: number },
+    @Req() req: Request,
+  ) {
+    return this.payments.generateMonthlyRent({
+      tenancyId: dto.tenancyId ? Number(dto.tenancyId) : undefined,
+      year: dto.year ? Number(dto.year) : undefined,
+      month: dto.month ? Number(dto.month) : undefined,
+      req,
+    });
   }
 
   /** Provider webhook. Public route: authenticity comes from the signature. */

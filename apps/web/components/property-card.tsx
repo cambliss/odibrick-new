@@ -33,13 +33,20 @@ export function PropertyCard({ property }: { property: PropertyCardData }) {
     <article className="group overflow-hidden rounded-card border border-line bg-white shadow-card transition-shadow hover:shadow-lift">
       <Link href={`/${property.slug}`} className="block">
         <div className="relative aspect-[4/3] overflow-hidden bg-seal-soft">
-          {/* Photographs are served from private storage; the placeholder keeps
-              the card honest when a listing has no usable image yet. */}
-          <div className="flex h-full w-full items-center justify-center">
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-seal/50">
-              {titleCase(property.propertyType)}
-            </span>
-          </div>
+          {property.coverKey ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`/api/storage/${property.coverKey}`}
+              alt={property.title}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-seal/50">
+                {titleCase(property.propertyType)}
+              </span>
+            </div>
+          )}
           {property.isFeatured ? (
             <span className="absolute left-3 top-3 rounded-pill bg-ochre px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white">
               Promoted

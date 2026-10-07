@@ -1,16 +1,92 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { AdminService } from './admin.service';
+import { PaymentReminderService } from '../payments/payment-reminder.service';
 import { CurrentUser, RequirePermissions } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly reminderService: PaymentReminderService,
+  ) {}
 
   @Get('kpis')
   @RequirePermissions('analytics.read')
   kpis() {
     return this.admin.kpis();
+  }
+
+  @Get('finance/overview')
+  @RequirePermissions('payment.manage')
+  financeOverview(
+    @Query('period') period?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.admin.financeOverview({ period, from, to });
+  }
+
+  @Get('finance/ledger')
+  @RequirePermissions('payment.manage')
+  financeLedger(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('purpose') purpose?: string,
+    @Query('status') status?: string,
+    @Query('settlementStatus') settlementStatus?: string,
+    @Query('tenancyId') tenancyId?: number,
+    @Query('payerUserId') payerUserId?: number,
+    @Query('payeeUserId') payeeUserId?: number,
+    @Query('paymentMethod') paymentMethod?: string,
+    @Query('q') q?: string,
+    @Query('page') page?: number,
+    @Query('pageSize') pageSize?: number,
+  ) {
+    return this.admin.financeLedger(
+      {
+        from,
+        to,
+        purpose,
+        status,
+        settlementStatus,
+        tenancyId: tenancyId ? Number(tenancyId) : undefined,
+        payerUserId: payerUserId ? Number(payerUserId) : undefined,
+        payeeUserId: payeeUserId ? Number(payeeUserId) : undefined,
+        paymentMethod,
+        q,
+      },
+      page ? Number(page) : undefined,
+      pageSize ? Number(pageSize) : undefined,
+    );
+  }
+
+  @Post('finance/reminders/run')
+  @RequirePermissions('payment.manage')
+  runReminders(@CurrentUser() user: AuthUser, @Body() body?: { targetDate?: string }) {
+    return this.reminderService.processDueReminders(body?.targetDate, user);
+  }
+
+  @Get('finance/payment-escalations')
+  @RequirePermissions('payment.manage')
+  paymentEscalations(
+    @Query('minDaysOverdue') minDays?: number,
+    @Query('stage') stage?: string,
+    @Query('limit') limit?: number,
+    @Query('asOfDate') asOfDate?: string,
+  ) {
+    return this.reminderService.getPaymentEscalations({
+      minDaysOverdue: minDays !== undefined && minDays !== null ? Number(minDays) : undefined,
+      stage,
+      limit: limit ? Number(limit) : undefined,
+      asOfDate,
+    });
+  }
+
+  @Get('governance-overview')
+  @RequirePermissions('user.read')
+  governanceOverview() {
+    return this.admin.operationalOverview();
   }
 
   @Get('users')

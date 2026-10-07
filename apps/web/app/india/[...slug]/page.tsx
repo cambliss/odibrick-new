@@ -6,6 +6,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { VerificationSeals, Seal } from '@/components/verification-seal';
 import { RecordSpine, JourneyBar } from '@/components/record-spine';
 import { Badge, Card, DataRow } from '@/components/ui';
+import { PropertyGallery } from './property-gallery';
 import { PropertyActions } from './property-actions';
 import { serverApi, serverApiOrNull, ApiError } from '@/lib/api';
 import { inr, shortDate, titleCase } from '@/lib/format';
@@ -132,29 +133,10 @@ export default async function PropertyPage({ params }: { params: { slug: string[
           <span>{property.locality}</span>
         </nav>
 
-        {/* gallery */}
-        <div className="mt-4 grid gap-2 overflow-hidden rounded-card sm:grid-cols-[2fr_1fr]">
-          <div className="flex aspect-[16/10] items-center justify-center bg-seal-soft">
-            <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-seal/50">
-              {property.images.length
-                ? `${property.images.length} photographs`
-                : 'No photographs uploaded'}
-            </span>
-          </div>
-          <div className="hidden grid-rows-2 gap-2 sm:grid">
-            {[0, 1].map((index) => (
-              <div key={index} className="flex items-center justify-center bg-seal-soft/70">
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-seal/40">
-                  {property.images[index + 1]?.room_tag
-                    ? titleCase(property.images[index + 1].room_tag!)
-                    : 'Photo'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Property Photo Gallery */}
+        <PropertyGallery images={property.images} title={property.title} />
 
-        <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+        <div className="mt-6 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{titleCase(property.listingType)}</Badge>

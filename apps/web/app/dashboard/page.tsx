@@ -50,12 +50,13 @@ type Payment = {
 type Notification = { id: number; title: string; body: string; created_at: string; action_url?: string };
 
 export default async function DashboardPage() {
-  const [me, summary, tenancies, payments, notifications] = await Promise.all([
+  const [me, summary, tenancies, payments, notifications, customerOverview] = await Promise.all([
     serverApi<Me>('/auth/me'),
     serverApi<Summary>('/me/summary'),
     serverApiOrNull<{ data: Tenancy[] }>('/tenancies'),
     serverApiOrNull<{ data: Payment[] }>('/payments', { query: { perPage: 5 } }),
     serverApiOrNull<Notification[]>('/notifications', { query: { limit: 5 } }),
+    serverApiOrNull<any>('/customer/overview'),
   ]);
 
   const isLister = me.roles.some((r) => ['OWNER', 'AGENT', 'BUILDER'].includes(r));
@@ -125,12 +126,74 @@ export default async function DashboardPage() {
         ) : (
           <>
             <StatTile label="My applications" value={summary.stats.my_applications} />
-            <StatTile label="Saved homes" value={summary.stats.saved} />
-            <StatTile label="Active tenancies" value={summary.stats.active_tenancies} />
+            <StatTile label="Saved homes" value={customerOverview?.savedCount ?? summary.stats.saved} />
+            <StatTile label="Saved searches" value={customerOverview?.savedSearchesCount ?? 0} />
             <StatTile label="Identity" value={titleCase(summary.kycStatus)} />
           </>
         )}
       </div>
+
+      {/* -------------------------------------------------- personalized recommendations */}
+      {customerOverview?.recommendations?.length ? (
+        <Card>
+          <CardHeader
+            title="Recommended for You"
+            note="Deterministic recommendations tailored to your search history, preferences, and shortlisted homes."
+            action={
+              <Link href="/properties">
+                <Button variant="ghost" size="sm">
+                  Explore all
+                </Button>
+              </Link>
+            }
+          />
+          <div className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {customerOverview.recommendations.slice(0, 3).map((rec: any, idx: number) => (
+              <div
+                key={rec.property?.id || idx}
+                className="group relative flex flex-col justify-between rounded-card border border-line bg-white p-4 transition-all hover:border-seal hover:shadow-sm"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge tone="seal">
+                      {rec.matchResult?.matchPercentage ? `${rec.matchResult.matchPercentage}% match` : 'Recommended'}
+                    </Badge>
+                    <span className="text-[11px] font-medium text-ink-muted">
+                      {rec.category?.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-ink line-clamp-1 group-hover:text-brand-primary">
+                      {rec.property?.title}
+                    </h4>
+                    <p className="text-xs text-ink-muted">
+                      {rec.property?.locality}, {rec.property?.city}
+                    </p>
+                  </div>
+
+                  <div className="text-xs font-bold text-ink">
+                    {inr(rec.property?.rentAmount)}/mo · {rec.property?.bedrooms} BHK
+                  </div>
+
+                  <p className="text-[11px] text-muted italic bg-slate-50 p-2 rounded border border-border/50">
+                    "{rec.explanation}"
+                  </p>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-line flex items-center justify-between">
+                  <Link
+                    href={`/properties/${rec.property?.slug || rec.property?.id}`}
+                    className="text-xs font-semibold text-brand-primary hover:underline"
+                  >
+                    View home →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* ------------------------------------------------------- tenancies */}

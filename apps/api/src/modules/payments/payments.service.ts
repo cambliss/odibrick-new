@@ -59,6 +59,120 @@ export class PaymentsService {
     await this.scheduleAnnualCommission(tenancy);
   }
 
+  /**
+   * Generates recurring monthly rent for active tenancies for a target period (e.g. year: 2026, month: 10).
+   * Idempotent: Skips if a MONTHLY_RENT payment already exists for that tenancy & period.
+   */
+  async generateMonthlyRent(input?: { tenancyId?: number; year?: number; month?: number; req?: Request }) {
+    const where: string[] = ["t.stage = 'ACTIVE'"];
+    const params: unknown[] = [];
+    if (input?.tenancyId) {
+      where.push('t.id = ?');
+      params.push(input.tenancyId);
+    }
+
+    const tenancies = await this.db.query<any>(
+      `SELECT t.*, p.title AS property_title, p.locality, p.city,
+              a.id AS agreement_id, a.effective_from, a.effective_to,
+              v.variables AS agreement_vars
+         FROM tenancies t
+         JOIN properties p ON p.id = t.property_id
+         LEFT JOIN agreements a ON a.id = (
+           SELECT a2.id FROM agreements a2
+            WHERE a2.tenancy_id = t.id AND a2.status = 'EXECUTED'
+            ORDER BY a2.id DESC LIMIT 1
+         )
+         LEFT JOIN agreement_versions v ON v.agreement_id = a.id AND v.version = a.current_version
+        WHERE ${where.join(' AND ')}`,
+      params,
+    );
+
+    const now = new Date();
+    const targetYear = input?.year ?? now.getFullYear();
+    const targetMonth = input?.month ?? (now.getMonth() + 1); // 1-12
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    const monthName = monthNames[targetMonth - 1];
+
+    const results: Array<{ tenancyId: number; paymentId?: number; status: 'CREATED' | 'ALREADY_EXISTS' | 'SKIPPED'; message?: string }> = [];
+
+    for (const t of tenancies) {
+      let vars: any = {};
+      if (t.agreement_vars) {
+        vars = typeof t.agreement_vars === 'string' ? JSON.parse(t.agreement_vars) : t.agreement_vars;
+      }
+      const rentAmount = Number(vars.rent_amount ?? t.rent_amount);
+      const rentDueDay = Number(vars.rent_due_day ?? t.rent_due_day ?? 5);
+
+      const lastDayOfMonth = new Date(targetYear, targetMonth, 0).getDate();
+      const periodStart = `${targetYear}-${String(targetMonth).padStart(2, '0')}-01`;
+      const periodEnd = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
+      const dueDate = `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(Math.min(rentDueDay, lastDayOfMonth)).padStart(2, '0')}`;
+      const periodLabel = `Rent for ${monthName} ${targetYear} (${periodStart} to ${periodEnd})`;
+
+      if (t.end_date && new Date(t.end_date) < new Date(periodStart)) {
+        results.push({ tenancyId: t.id, status: 'SKIPPED', message: 'Tenancy ended before period.' });
+        continue;
+      }
+      if (t.effective_to && new Date(t.effective_to) < new Date(periodStart)) {
+        results.push({ tenancyId: t.id, status: 'SKIPPED', message: 'Agreement ended before period.' });
+        continue;
+      }
+
+      // Idempotency: Check if monthly rent already exists for this tenancy and period
+      const existing = await this.db.one<any>(
+        `SELECT id, status, reference_code FROM payments
+          WHERE tenancy_id = ? AND purpose = 'MONTHLY_RENT'
+            AND (due_date = ? OR notes LIKE ?) LIMIT 1`,
+        [t.id, dueDate, `%${monthName} ${targetYear}%`],
+      );
+
+      if (existing) {
+        results.push({
+          tenancyId: t.id,
+          paymentId: existing.id,
+          status: 'ALREADY_EXISTS',
+          message: `Payment ${existing.reference_code} already exists (${existing.status}).`,
+        });
+        continue;
+      }
+
+      const paymentId = await this.createPayment({
+        payerUserId: t.tenant_user_id,
+        payeeUserId: t.owner_user_id,
+        tenancyId: t.id,
+        propertyId: t.property_id,
+        purpose: 'MONTHLY_RENT',
+        amount: rentAmount,
+        dueDate,
+        notes: periodLabel,
+      });
+
+      if (input?.req && (input.req as any).user) {
+        await this.audit.record({
+          actor: (input.req as any).user,
+          action: 'payment.rent_generated',
+          objectType: 'payment',
+          objectId: paymentId,
+          metadata: { tenancyId: t.id, rentAmount, dueDate, periodLabel },
+          req: input.req,
+        });
+      }
+
+      results.push({
+        tenancyId: t.id,
+        paymentId,
+        status: 'CREATED',
+        message: `Created payment for ${periodLabel} with due date ${dueDate}.`,
+      });
+    }
+
+    return { targetPeriod: `${monthName} ${targetYear}`, count: results.length, results };
+  }
+
   async createPayment(input: {
     payerUserId: number;
     payeeUserId?: number | null;
@@ -70,11 +184,11 @@ export class PaymentsService {
     dueDate?: string;
     notes?: string;
   }): Promise<number> {
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM payments');
+    const seq = await this.db.one<{ maxId: number }>('SELECT COALESCE(MAX(id), 0) AS maxId FROM payments');
     const tax = input.taxRate ? Number((input.amount * input.taxRate / 100).toFixed(2)) : 0;
     const id = await this.db.insert('payments', {
       public_id: newPublicId(),
-      reference_code: formatReference('PAY', (seq?.c ?? 0) + 1),
+      reference_code: formatReference('PAY', (seq?.maxId ?? 0) + 1),
       payer_user_id: input.payerUserId,
       payee_user_id: input.payeeUserId ?? null,
       tenancy_id: input.tenancyId ?? null,
@@ -133,6 +247,42 @@ export class PaymentsService {
       checkout: order.checkoutPayload,
       instructions: order.instructions,
     };
+  }
+
+  /** Allows the authenticated payer to settle their payment in demo/transfer flow. */
+  async settleByPayer(
+    user: AuthUser,
+    paymentId: number,
+    dto: { method?: string; reference?: string },
+    req?: Request,
+  ) {
+    const payment = await this.assertPayer(user, paymentId);
+    if (payment.status === 'PAID') throw new BadRequestException('This payment is already settled.');
+
+    const txnRef = dto.reference ?? `UPI-${randomToken(8).toUpperCase()}`;
+    await this.db.insert('payment_transactions', {
+      payment_id: payment.id,
+      txn_reference: `TXN-${randomToken(8).toUpperCase()}`,
+      direction: 'COLLECTION',
+      provider: 'manual',
+      provider_txn_id: txnRef,
+      method: dto.method ?? 'UPI',
+      amount: Number(payment.total_amount),
+      currency: payment.currency,
+      status: 'SUCCESS',
+      idempotency_key: `payer:${payment.id}:${txnRef}`,
+    });
+
+    await this.markPaid(payment.id, `payer:${user.id}`);
+    await this.audit.record({
+      actor: user,
+      action: 'payment.settled',
+      objectType: 'payment',
+      objectId: payment.id,
+      metadata: { method: dto.method ?? 'UPI', reference: txnRef },
+      req,
+    });
+    return { id: payment.id, status: 'PAID', referenceCode: payment.reference_code };
   }
 
   /** Provider webhook. Signature is verified inside the adapter. */
@@ -224,36 +374,129 @@ export class PaymentsService {
     });
 
     if (payment.tenancy_id) {
-      await this.advanceTenancyAfterPayment(payment.tenancy_id);
+      await this.advanceTenancyAfterPayment(payment, payment.tenancy_id);
     }
+
+    // Synchronize linked Commercial Obligations
+    await this.db.execute(
+      `UPDATE commercial_obligations SET status = 'PAID' WHERE payment_id = ? AND status != 'PAID'`,
+      [paymentId],
+    );
+
+    // Activate linked Listing Promotions upon payment settlement
+    const promo = await this.db.one<any>(
+      `SELECT lp.*, mp.duration_days
+         FROM listing_promotions lp
+         LEFT JOIN marketing_packages mp ON mp.id = lp.package_id
+        WHERE lp.payment_id = ? AND lp.status = 'PENDING_PAYMENT'`,
+      [paymentId],
+    );
+    if (promo) {
+      const durationDays = Number(promo.duration_days || 30);
+      const startsAt = new Date();
+      const endsAt = new Date(Date.now() + durationDays * 86400000);
+      await this.db.update('listing_promotions', promo.id, {
+        status: 'ACTIVE',
+        starts_at: startsAt,
+        ends_at: endsAt,
+      });
+      await this.db.update('properties', promo.listing_id, {
+        is_featured: 1,
+        visibility_tier: promo.visibility_tier || 'FEATURED',
+        featured_until: endsAt,
+        promoted_until: endsAt,
+      });
+    }
+
     this.logger.log(`Payment ${payment.reference_code} marked PAID (${source})`);
   }
 
-  /** Once move-in dues clear, the tenancy moves to check-in documentation. */
-  private async advanceTenancyAfterPayment(tenancyId: number) {
-    const outstanding = await this.db.one<{ c: number }>(
-      `SELECT COUNT(*) AS c FROM payments
-        WHERE tenancy_id = ? AND purpose IN ('SECURITY_DEPOSIT','ADVANCE_RENT') AND status <> 'PAID'`,
-      [tenancyId],
-    );
-    if ((outstanding?.c ?? 0) > 0) return;
-
+  /** Advances tenancy after payment: move-in dues advance to check-in, deposit refund advances to closed. */
+  private async advanceTenancyAfterPayment(payment: any, tenancyId: number) {
     const tenancy = await this.db.one<any>('SELECT * FROM tenancies WHERE id = ?', [tenancyId]);
-    if (!tenancy || tenancy.stage !== 'AWAITING_PAYMENT') return;
+    if (!tenancy) return;
 
-    await this.db.update('tenancies', tenancyId, { stage: 'CHECK_IN_PENDING' });
-    await this.db.insert('property_timeline', {
-      property_id: tenancy.property_id,
-      tenancy_id: tenancyId,
-      event_code: 'PAYMENT_COMPLETED',
-      title: 'Move-in payments completed',
-    });
-    await this.notify.send(tenancy.tenant_user_id, 'CHECK_IN_PENDING', {
-      title: 'Document your home',
-      body: 'Record the Day 1 condition report as soon as you take possession. It protects your deposit.',
-      actionUrl: '/dashboard/condition-report',
-      severity: 'ACTION',
-    });
+    if (tenancy.stage === 'AWAITING_PAYMENT') {
+      const outstanding = await this.db.one<{ c: number }>(
+        `SELECT COUNT(*) AS c FROM payments
+          WHERE tenancy_id = ? AND purpose IN ('SECURITY_DEPOSIT','ADVANCE_RENT') AND status <> 'PAID'`,
+        [tenancyId],
+      );
+      if ((outstanding?.c ?? 0) > 0) return;
+
+      await this.db.update('tenancies', tenancyId, { stage: 'CHECK_IN_PENDING' });
+      await this.db.insert('property_timeline', {
+        property_id: tenancy.property_id,
+        tenancy_id: tenancyId,
+        event_code: 'PAYMENT_COMPLETED',
+        title: 'Move-in payments completed',
+      });
+      await this.notify.send(tenancy.tenant_user_id, 'CHECK_IN_PENDING', {
+        title: 'Document your home',
+        body: 'Record the Day 1 condition report as soon as you take possession. It protects your deposit.',
+        actionUrl: '/dashboard/condition-report',
+        severity: 'ACTION',
+      });
+    } else if (tenancy.stage === 'MOVE_OUT' && payment.purpose === 'REFUND') {
+      const openRefunds = await this.db.one<{ c: number }>(
+        `SELECT COUNT(*) AS c FROM payments
+          WHERE tenancy_id = ? AND purpose = 'REFUND' AND status <> 'PAID'`,
+        [tenancyId],
+      );
+      if ((openRefunds?.c ?? 0) > 0) return;
+
+      await this.db.update('tenancies', tenancyId, { stage: 'CLOSED', closed_at: new Date() });
+      await this.db.insert('property_timeline', {
+        property_id: tenancy.property_id,
+        tenancy_id: tenancyId,
+        event_code: 'TENANCY_CLOSED',
+        title: 'Tenancy closed',
+        detail: `Security deposit refund of INR ${Number(payment.total_amount).toLocaleString('en-IN')} settled. Tenancy closed.`,
+        actor_id: payment.payer_user_id,
+      });
+
+      await this.notify.send(payment.payee_user_id, 'PAYMENT_RECEIVED', {
+        title: 'Security deposit refund settled',
+        body: `Security deposit refund of INR ${Number(payment.total_amount).toLocaleString('en-IN')} has been recorded.`,
+        actionUrl: '/dashboard/payments',
+      });
+
+      await this.notify.sendMany([tenancy.owner_user_id, tenancy.tenant_user_id], 'PAYMENT_RECEIVED', {
+        title: 'Tenancy closed',
+        body: 'Tenancy closed. Final settlement complete.',
+        actionUrl: `/dashboard/tenancy/${tenancyId}`,
+      });
+
+      await this.audit.record({
+        actor: {
+          id: payment.payer_user_id,
+          publicId: '',
+          fullName: 'Owner',
+          email: '',
+          roles: ['OWNER'],
+          permissions: [],
+        },
+        action: 'deposit.refund_paid',
+        objectType: 'payment',
+        objectId: payment.id,
+        metadata: { tenancyId, refundAmount: Number(payment.total_amount) },
+      });
+
+      await this.audit.record({
+        actor: {
+          id: payment.payer_user_id,
+          publicId: '',
+          fullName: 'Owner',
+          email: '',
+          roles: ['OWNER'],
+          permissions: [],
+        },
+        action: 'tenancy.closed',
+        objectType: 'tenancy',
+        objectId: tenancyId,
+        metadata: { paymentId: payment.id, refundAmount: Number(payment.total_amount) },
+      });
+    }
   }
 
   // ------------------------------------------------------------- listings
@@ -279,12 +522,15 @@ export class PaymentsService {
     const rows = await this.db.query(
       `SELECT pay.id, pay.reference_code, pay.purpose, pay.amount, pay.tax_amount, pay.total_amount,
               pay.currency, pay.status, pay.settlement_status, pay.due_date, pay.paid_at,
-              pay.payer_user_id, pay.payee_user_id,
+              pay.payer_user_id, pay.payee_user_id, pay.notes, pay.tenancy_id,
               p.title AS property_title, p.slug,
+              payer.full_name AS payer_name, payee.full_name AS payee_name,
               (SELECT pt.provider_txn_id FROM payment_transactions pt
                 WHERE pt.payment_id = pay.id AND pt.status = 'SUCCESS' ORDER BY pt.id DESC LIMIT 1) AS reference
          FROM payments pay
          LEFT JOIN properties p ON p.id = pay.property_id
+         LEFT JOIN users payer ON payer.id = pay.payer_user_id
+         LEFT JOIN users payee ON payee.id = pay.payee_user_id
         WHERE ${clause}
         ORDER BY FIELD(pay.status,'DUE','FAILED','INITIATED','PROCESSING','PAID'), pay.due_date ASC, pay.id DESC
         LIMIT ? OFFSET ?`,
@@ -300,7 +546,7 @@ export class PaymentsService {
     const payment = await this.db.one<any>('SELECT * FROM payments WHERE id = ?', [paymentId]);
     if (!payment) throw new NotFoundException('Payment not found.');
     const isParty = [payment.payer_user_id, payment.payee_user_id].includes(user.id);
-    if (!isParty && !user.permissions.includes('payment.read')) {
+    if (!isParty && !user.permissions.includes('payment.manage')) {
       throw new ForbiddenException('This payment belongs to other parties.');
     }
     const transactions = await this.db.query(

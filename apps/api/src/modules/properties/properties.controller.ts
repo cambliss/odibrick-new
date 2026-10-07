@@ -4,7 +4,8 @@ import {
 import { Request } from 'express';
 import { PropertiesService } from './properties.service';
 import {
-  CreatePropertyDto, ModerateDto, PropertySearchDto, UpdatePropertyDto, VerificationCheckDto,
+  ArchivePropertyDto,
+  AttachImageDto, CreatePropertyDto, ModerateDto, PropertySearchDto, RemovePropertyDto, ReorderImagesDto, UpdatePropertyDto, VerificationCheckDto,
 } from './properties.dto';
 import { CurrentUser, Public, RequirePermissions, Roles } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
@@ -34,7 +35,7 @@ export class PropertiesController {
   }
 
   @Get('mine')
-  @Roles('OWNER', 'AGENT', 'BUILDER')
+  @Roles('OWNER', 'AGENT', 'BUILDER', 'ADMIN', 'SUPER_ADMIN')
   listMine(
     @CurrentUser() user: AuthUser,
     @Query('status') status?: string,
@@ -55,14 +56,31 @@ export class PropertiesController {
     return this.properties.findOwned(user, id);
   }
 
+  @Get(':id/deletion-eligibility')
+  getDeletionEligibility(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.properties.getPropertyDeletionEligibility(user, id);
+  }
+
+  @Get(':id/removal-eligibility')
+  getRemovalEligibility(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.properties.getPropertyDeletionEligibility(user, id);
+  }
+
   @Public()
-  @Get(':identifier')
+  @Get(':identifier(*)')
   async detail(
     @Param('identifier') identifier: string,
     @Req() req: Request,
     @CurrentUser() user?: AuthUser,
   ) {
-    const property = await this.properties.findBySlugOrPublicId(identifier, user);
+    const decoded = decodeURIComponent(identifier);
+    const property = await this.properties.findBySlugOrPublicId(decoded, user);
     const session = sha256(`${req.ip}:${req.headers['user-agent'] ?? ''}`);
     await this.properties.recordView(property.id, user?.id, session, (req.query.src as string) ?? undefined);
     return property;
@@ -94,9 +112,29 @@ export class PropertiesController {
     return this.properties.duplicate(user, id);
   }
 
+  @Post(':id/remove')
+  remove(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RemovePropertyDto,
+    @Req() req: Request,
+  ) {
+    return this.properties.removeProperty(user, id, dto?.reason, req);
+  }
+
   @Delete(':id')
-  archive(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Req() req: Request) {
-    return this.properties.archive(user, id, req);
+  delete(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number, @Req() req: Request) {
+    return this.properties.deleteProperty(user, id, req);
+  }
+
+  @Post(':id/archive')
+  archive(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ArchivePropertyDto,
+    @Req() req: Request,
+  ) {
+    return this.properties.archiveProperty(user, id, dto.reason, req);
   }
 
   @Post(':id/moderate')
@@ -120,13 +158,42 @@ export class PropertiesController {
     return this.properties.setVerificationCheck(user, id, dto.checkType, dto.status, dto.notes);
   }
 
+  @Get(':id/images')
+  getImages(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.properties.getImages(user, id);
+  }
+
   @Post(':id/images')
   attachImage(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseIntPipe) id: number,
-    @Body() body: { storageKey: string; caption?: string; roomTag?: string },
+    @Body() body: AttachImageDto,
+    @Req() req: Request,
   ) {
-    return this.properties.attachImage(user, id, body.storageKey, body.caption, body.roomTag);
+    return this.properties.attachImage(user, id, body.storageKey, body.caption, body.roomTag, req);
+  }
+
+  @Post(':id/images/:imageId/cover')
+  setCoverImage(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('imageId', ParseIntPipe) imageId: number,
+    @Req() req: Request,
+  ) {
+    return this.properties.setCoverImage(user, id, imageId, req);
+  }
+
+  @Post(':id/images/reorder')
+  reorderImages(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: ReorderImagesDto,
+    @Req() req: Request,
+  ) {
+    return this.properties.reorderImages(user, id, body.imageIds, req);
   }
 
   @Delete(':id/images/:imageId')
@@ -134,7 +201,9 @@ export class PropertiesController {
     @CurrentUser() user: AuthUser,
     @Param('id', ParseIntPipe) id: number,
     @Param('imageId', ParseIntPipe) imageId: number,
+    @Req() req: Request,
   ) {
-    return this.properties.removeImage(user, id, imageId);
+    return this.properties.removeImage(user, id, imageId, req);
   }
 }
+

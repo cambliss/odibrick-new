@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import configuration from './config/configuration';
 
 import { DatabaseModule } from './common/database/database.module';
@@ -23,13 +24,21 @@ import { OperationsModule } from './modules/operations/operations.module';
 import { InsuranceModule } from './modules/insurance/insurance.module';
 import { MarketingModule } from './modules/marketing/marketing.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { CommunicationsModule } from './modules/communications/communications.module';
+import { ComplianceModule } from './modules/compliance/compliance.module';
+import { AutomationModule } from './modules/automation/automation.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { RiskModule } from './modules/risk/risk.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { PersonalizationModule } from './modules/personalization/personalization.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration], cache: true }),
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: process.env.THROTTLE_LIMIT ? Number(process.env.THROTTLE_LIMIT) : 600 }]),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     AuditModule,
     StorageModule,
@@ -45,6 +54,13 @@ import { HealthModule } from './modules/health/health.module';
     OperationsModule,
     InsuranceModule,
     MarketingModule,
+    CommunicationsModule,
+    ComplianceModule,
+    AutomationModule,
+    AnalyticsModule,
+    RiskModule,
+    IntegrationsModule,
+    PersonalizationModule,
     AdminModule,
     HealthModule,
   ],

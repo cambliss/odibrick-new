@@ -174,6 +174,26 @@ export class UsersService {
       tasks.push({ label: 'Record your Day 1 condition report', href: `/dashboard/tenancy/${t.id}`, severity: 'ACTION' }),
     );
 
+    const ownerMaintenanceReviews = await this.db.query<any>(
+      `SELECT m.id, m.ticket_number, m.title FROM maintenance_requests m
+         JOIN tenancies t ON t.id = m.tenancy_id
+        WHERE t.owner_user_id = ? AND m.status IN ('OPEN', 'OWNER_REVIEW') LIMIT 5`,
+      [user.id],
+    );
+    ownerMaintenanceReviews.forEach((m) =>
+      tasks.push({ label: `Review maintenance request ${m.ticket_number}: ${m.title}`, href: `/dashboard/maintenance/${m.id}`, severity: 'ACTION' }),
+    );
+
+    const tenantMaintenanceConfirmations = await this.db.query<any>(
+      `SELECT m.id, m.ticket_number, m.title FROM maintenance_requests m
+         JOIN tenancies t ON t.id = m.tenancy_id
+        WHERE t.tenant_user_id = ? AND m.status = 'COMPLETED' LIMIT 5`,
+      [user.id],
+    );
+    tenantMaintenanceConfirmations.forEach((m) =>
+      tasks.push({ label: `Confirm resolution of maintenance ${m.ticket_number}`, href: `/dashboard/maintenance/${m.id}`, severity: 'ACTION' }),
+    );
+
     const stats = await this.db.one<any>(
       `SELECT (SELECT COUNT(*) FROM properties WHERE listed_by_user_id = ? AND status = 'ACTIVE') AS active_listings,
               (SELECT COUNT(*) FROM properties WHERE listed_by_user_id = ? AND status = 'DRAFT') AS draft_listings,

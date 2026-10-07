@@ -5,6 +5,8 @@ import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthUser } from '../../common/auth/auth.types';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 const owner: AuthUser = {
   id: 10, publicId: 'P1', email: 'o@example.com', fullName: 'Owner',
   roles: ['OWNER'], permissions: ['property.create', 'property.update.own'],
@@ -31,6 +33,7 @@ describe('PropertiesService', () => {
         PropertiesService,
         { provide: DatabaseService, useValue: db },
         { provide: AuditService, useValue: { record: jest.fn() } },
+        { provide: NotificationsService, useValue: { send: jest.fn(), sendMany: jest.fn() } },
       ],
     }).compile();
     service = moduleRef.get(PropertiesService);

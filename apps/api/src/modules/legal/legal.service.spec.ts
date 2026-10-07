@@ -60,4 +60,14 @@ describe('LegalService', () => {
       .mockResolvedValueOnce({ id: 1, status: 'AWAITING_SIGNATURES', current_version: 1 });
     await expect(service.draft(lawyer, 9, { bodyHtml: '<p>x</p>' })).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('assigns advocate, sets status to DOCUMENT_REVIEW and records audit', async () => {
+    const result = await service.assign(lawyer, 2, { assigneeId: 3, priority: 'HIGH' });
+    expect(db.update).toHaveBeenCalledWith('legal_cases', 2, {
+      assigned_to: 3,
+      status: 'DOCUMENT_REVIEW',
+      priority: 'HIGH',
+    });
+    expect(result).toEqual({ id: 2, assignedTo: 3 });
+  });
 });

@@ -20,6 +20,9 @@ type Payment = {
   paid_at?: string;
   property_title?: string;
   reference?: string;
+  notes?: string;
+  payer_name?: string;
+  payee_name?: string;
   direction: 'IN' | 'OUT';
 };
 
@@ -61,13 +64,25 @@ export default async function PaymentsPage() {
                 <li key={payment.id} className="flex flex-wrap items-center justify-between gap-4 py-4 first:pt-0">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{titleCase(payment.purpose)}</p>
+                      <p className="font-medium">
+                        {payment.purpose === 'MONTHLY_RENT' && payment.notes
+                          ? payment.notes
+                          : payment.purpose === 'REFUND'
+                          ? 'Security Deposit Refund'
+                          : titleCase(payment.purpose)}
+                      </p>
                       <StatusChip status={payment.status} />
+                      {payment.due_date && new Date(payment.due_date) < new Date(new Date().toISOString().slice(0, 10)) && (
+                        <span className="rounded bg-rose-100 text-rose-800 font-mono text-[10px] px-1.5 py-0.5 font-semibold">
+                          {Math.floor((new Date(new Date().toISOString().slice(0, 10)).getTime() - new Date(payment.due_date).getTime()) / 86400000)}d overdue
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wider text-muted">
                       {payment.reference_code}
                       {payment.property_title ? ` · ${payment.property_title}` : ''}
                       {payment.due_date ? ` · due ${shortDate(payment.due_date)}` : ''}
+                      {payment.direction === 'IN' && payment.payer_name ? ` · From: ${payment.payer_name}` : ''}
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
@@ -90,7 +105,7 @@ export default async function PaymentsPage() {
       </Card>
 
       <Card>
-        <CardHeader title="History" />
+        <CardHeader title="Payment History & Settlements" />
         <div className="p-5">
           {settled.length ? (
             <div className="overflow-x-auto">
@@ -98,8 +113,8 @@ export default async function PaymentsPage() {
                 <thead>
                   <tr className="border-b border-line text-left font-mono text-[10px] uppercase tracking-wider text-muted">
                     <th className="pb-2 pr-4 font-normal">Reference</th>
-                    <th className="pb-2 pr-4 font-normal">Purpose</th>
-                    <th className="pb-2 pr-4 font-normal">Property</th>
+                    <th className="pb-2 pr-4 font-normal">Purpose / Period</th>
+                    <th className="pb-2 pr-4 font-normal">Property & Party</th>
                     <th className="pb-2 pr-4 font-normal">Date</th>
                     <th className="pb-2 pr-4 text-right font-normal">Amount</th>
                     <th className="pb-2 text-right font-normal">Status</th>
@@ -109,8 +124,25 @@ export default async function PaymentsPage() {
                   {settled.map((payment) => (
                     <tr key={payment.id}>
                       <td className="py-2.5 pr-4 font-mono text-[12px]">{payment.reference_code}</td>
-                      <td className="py-2.5 pr-4">{titleCase(payment.purpose)}</td>
-                      <td className="py-2.5 pr-4 text-muted">{payment.property_title ?? '—'}</td>
+                      <td className="py-2.5 pr-4">
+                        <span className="font-medium">
+                          {payment.purpose === 'MONTHLY_RENT' && payment.notes
+                            ? payment.notes
+                            : payment.purpose === 'REFUND'
+                            ? 'Security Deposit Refund'
+                            : titleCase(payment.purpose)}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-4 text-muted">
+                        <div>{payment.property_title ?? '—'}</div>
+                        {(payment.payer_name || payment.payee_name) && (
+                          <div className="text-[11px] text-muted">
+                            {payment.direction === 'IN'
+                              ? `Payer: ${payment.payer_name || '—'}`
+                              : `Payee: ${payment.payee_name || '—'}`}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-2.5 pr-4 text-muted">{shortDate(payment.paid_at)}</td>
                       <td className="py-2.5 pr-4 text-right tabular">
                         {payment.direction === 'OUT' ? '−' : '+'}

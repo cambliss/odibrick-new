@@ -7,10 +7,11 @@ export const metadata: Metadata = { title: 'Add a property', robots: { index: fa
 export const dynamic = 'force-dynamic';
 
 export default async function NewPropertyPage() {
-  // Listing requires a verified identity — checked here so the user is not
-  // sent through ten steps only to be refused at the end.
-  const profile = await serverApi<{ kyc?: { status: string } }>('/me/profile');
-  if (profile.kyc?.status !== 'VERIFIED') redirect('/dashboard/kyc?reason=listing');
+  // Listing requires a verified identity for regular providers (OWNER, AGENT, BUILDER).
+  // Platform management (SUPER_ADMIN, ADMIN) creates and manages listings under platform authority.
+  const profile = await serverApi<{ kyc?: { status: string }; roles?: string[] }>('/me/profile');
+  const isManagement = profile.roles?.some((r: string) => ['SUPER_ADMIN', 'ADMIN'].includes(r));
+  if (!isManagement && profile.kyc?.status !== 'VERIFIED') redirect('/dashboard/kyc?reason=listing');
 
   return (
     <div className="space-y-6">

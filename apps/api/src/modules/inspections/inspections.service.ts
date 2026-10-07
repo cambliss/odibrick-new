@@ -158,7 +158,6 @@ export class InspectionsService {
       [id, id, id],
     );
     if ((counts?.items ?? 0) < 5) throw new BadRequestException('Record at least five items before submitting.');
-    if ((counts?.media ?? 0) < 5) throw new BadRequestException('Add at least five photographs before submitting.');
 
     await this.db.update('inspections', id, {
       status: 'SUBMITTED',

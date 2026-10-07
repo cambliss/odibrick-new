@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Button, Card, ErrorNote } from '@/components/ui';
+import { useEffect, useRef, useState } from 'react';
+import { Badge, Button, Card, ErrorNote } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { inr } from '@/lib/format';
 
@@ -95,7 +95,7 @@ export function ListingWizard({ initial, propertyId }: { initial?: Draft; proper
         : [...d.preferredTenants, code],
     }));
 
-  const save = async (advance = true) => {
+  const save = async (advance = true): Promise<number | null> => {
     setBusy(true);
     setError(null);
     try {
@@ -106,8 +106,10 @@ export function ListingWizard({ initial, propertyId }: { initial?: Draft; proper
       setId(result.id);
       setSaved(`Draft saved at ${new Date().toLocaleTimeString('en-IN')}`);
       if (advance && step < STEPS.length - 1) setStep(step + 1);
+      return result.id;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save the draft. Try again.');
+      return null;
     } finally {
       setBusy(false);
     }
@@ -679,7 +681,13 @@ export function ListingWizard({ initial, propertyId }: { initial?: Draft; proper
                 Photographs are uploaded to your private document vault and attached to this listing. You
                 need at least four to publish. Our team checks them against the ownership documents.
               </p>
-              <PhotoUploader propertyId={id} />
+              <PhotoUploader
+                propertyId={id}
+                onEnsureDraftId={async () => {
+                  const savedId = await save(false);
+                  return savedId;
+                }}
+              />
             </>
           ) : null}
         </div>
@@ -713,70 +721,408 @@ export function ListingWizard({ initial, propertyId }: { initial?: Draft; proper
   );
 }
 
+type PropertyImageItem = {
+  id?: number;
+  storageKey: string;
+  isCover: boolean;
+  sortOrder: number;
+  fileName?: string;
+  fileSize?: number;
+  previewUrl?: string;
+  status: 'uploading' | 'uploaded' | 'error';
+  errorMessage?: string;
+};
+
+const ALLOWED_EXTENSIONS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.jfif',
+  '.jfi',
+  '.jifi',
+  '.png',
+  '.webp',
+  '.heic',
+  '.heif',
+  '.avif',
+  '.gif',
+]);
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/jfif',
+  'image/png',
+  'image/x-png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+  'image/avif',
+  'image/gif',
+]);
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
 /** Uploads go to the private vault; the storage key is what gets attached. */
-function PhotoUploader({ propertyId }: { propertyId?: number }) {
-  const [uploaded, setUploaded] = useState<string[]>([]);
+function PhotoUploader({
+  propertyId,
+  onEnsureDraftId,
+}: {
+  propertyId?: number;
+  onEnsureDraftId: () => Promise<number | null>;
+}) {
+  const [images, setImages] = useState<PropertyImageItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handle = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (!files.length) return;
-    if (!propertyId) {
-      setError('Save the draft first, then add photographs.');
+  // Load existing images if property already exists
+  useEffect(() => {
+    if (!propertyId) return;
+    let cancelled = false;
+    api<Array<{ id: number; storage_key: string; is_cover: number; sort_order: number; caption?: string }>>(
+      `/properties/${propertyId}/images`,
+    )
+      .then((data) => {
+        if (cancelled) return;
+        setImages(
+          data.map((item) => ({
+            id: item.id,
+            storageKey: item.storage_key,
+            isCover: item.is_cover === 1,
+            sortOrder: item.sort_order,
+            previewUrl: `/api/storage/${item.storage_key}`,
+            fileName: item.storage_key.split('/').pop()?.replace(/^\d+_[a-f0-9]+_/, ''),
+            status: 'uploaded',
+          })),
+        );
+      })
+      .catch(() => {
+        // Silently ignore initial fetch errors
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyId]);
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFiles = Array.from(event.target.files ?? []);
+    if (!rawFiles.length) return;
+
+    setError(null);
+    const validationErrors: string[] = [];
+    const validFiles: File[] = [];
+
+    for (const file of rawFiles) {
+      const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+      if (!ALLOWED_EXTENSIONS.has(ext) || (file.type && !ALLOWED_MIME_TYPES.has(file.type))) {
+        validationErrors.push(
+          `${file.name} cannot be uploaded. Supported formats are JPG, JPEG, JFIF, PNG, WebP, HEIC, HEIF and AVIF.`,
+        );
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        validationErrors.push(`${file.name} exceeds the 10 MB limit.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validationErrors.length) {
+      setError(validationErrors.join(' '));
+    }
+
+    if (!validFiles.length) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
+
     setBusy(true);
-    setError(null);
+
     try {
-      for (const file of files) {
-        const form = new FormData();
-        form.append('file', file);
-        form.append('folder', 'properties');
-        const result = await api<{ storageKey: string }>('/uploads', { method: 'POST', body: form });
-        await api(`/properties/${propertyId}/images`, {
-          method: 'POST',
-          body: JSON.stringify({ storageKey: result.storageKey, isCover: uploaded.length === 0 }),
-        });
-        setUploaded((current) => [...current, file.name]);
+      let targetId = propertyId;
+      if (!targetId) {
+        const ensured = await onEnsureDraftId();
+        if (!ensured) {
+          setError('Could not auto-save draft. Please save the draft first.');
+          setBusy(false);
+          return;
+        }
+        targetId = ensured;
       }
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Upload failed. Check the file type and size.');
+
+      for (const file of validFiles) {
+        const localPreview = URL.createObjectURL(file);
+        const tempKey = `local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        
+        // Add optimistic item
+        setImages((curr) => [
+          ...curr,
+          {
+            storageKey: tempKey,
+            isCover: curr.length === 0,
+            sortOrder: curr.length,
+            fileName: file.name,
+            fileSize: file.size,
+            previewUrl: localPreview,
+            status: 'uploading',
+          },
+        ]);
+
+        try {
+          const form = new FormData();
+          form.append('file', file);
+          form.append('folder', 'properties');
+          const result = await api<{ storageKey: string }>('/uploads', { method: 'POST', body: form });
+
+          const attached = await api<{ id: number; storageKey: string; isCover: boolean; sortOrder: number }>(
+            `/properties/${targetId}/images`,
+            {
+              method: 'POST',
+              body: JSON.stringify({ storageKey: result.storageKey }),
+            },
+          );
+
+          setImages((curr) =>
+            curr.map((img) =>
+              img.storageKey === tempKey
+                ? {
+                    ...img,
+                    id: attached.id,
+                    storageKey: attached.storageKey,
+                    isCover: attached.isCover,
+                    sortOrder: attached.sortOrder,
+                    status: 'uploaded',
+                    previewUrl: `/api/storage/${attached.storageKey}`,
+                  }
+                : img,
+            ),
+          );
+        } catch (uploadErr) {
+          const msg = uploadErr instanceof ApiError ? uploadErr.message : `Failed to upload ${file.name}.`;
+          setImages((curr) =>
+            curr.map((img) => (img.storageKey === tempKey ? { ...img, status: 'error', errorMessage: msg } : img)),
+          );
+        }
+      }
     } finally {
       setBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
+  const handleSetCover = async (image: PropertyImageItem) => {
+    if (!propertyId || !image.id) return;
+    try {
+      await api(`/properties/${propertyId}/images/${image.id}/cover`, { method: 'POST' });
+      setImages((curr) =>
+        curr.map((img) => ({
+          ...img,
+          isCover: img.id === image.id,
+        })),
+      );
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not set cover photo.');
+    }
+  };
+
+  const handleDelete = async (image: PropertyImageItem) => {
+    if (!propertyId || !image.id) {
+      setImages((curr) => curr.filter((img) => img !== image));
+      return;
+    }
+    try {
+      await api(`/properties/${propertyId}/images/${image.id}`, { method: 'DELETE' });
+      setImages((curr) => {
+        const remaining = curr.filter((img) => img.id !== image.id);
+        if (image.isCover && remaining.length > 0) {
+          remaining[0].isCover = true;
+        }
+        return remaining;
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not remove photograph.');
+    }
+  };
+
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= images.length) return;
+
+    const nextImages = [...images];
+    const [moved] = nextImages.splice(index, 1);
+    nextImages.splice(targetIndex, 0, moved);
+    setImages(nextImages);
+
+    if (propertyId) {
+      const validIds = nextImages.map((img) => img.id).filter((id): id is number => typeof id === 'number');
+      if (validIds.length === nextImages.length) {
+        try {
+          await api(`/properties/${propertyId}/images/reorder`, {
+            method: 'POST',
+            body: JSON.stringify({ imageIds: validIds }),
+          });
+        } catch {
+          // Reorder sync fail silent
+        }
+      }
+    }
+  };
+
+  const uploadedCount = images.filter((img) => img.status === 'uploaded').length;
+  const satisfiesRequirement = uploadedCount >= 4;
+
   return (
-    <div>
-      <label className="label" htmlFor="photos">
-        Add photographs
-      </label>
-      <input
-        id="photos"
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        multiple
-        onChange={handle}
-        disabled={busy || !propertyId}
-        className="field file:mr-3 file:rounded-card file:border-0 file:bg-seal file:px-3 file:py-1.5 file:text-white"
-      />
-      <p className="hint">JPEG, PNG or WebP, up to 10 MB each.</p>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <label className="label mb-0" htmlFor="photos">
+            Add photographs
+          </label>
+          <p className="hint mt-0.5">JPG, JPEG, JFIF, PNG, WebP, HEIC, HEIF or AVIF, up to 10 MB each.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[12px] text-muted">
+            Photos: <strong>{uploadedCount}</strong> / Min required: 4
+          </span>
+          {satisfiesRequirement ? (
+            <Badge tone="seal">Requirement Satisfied ✓</Badge>
+          ) : (
+            <Badge tone="ochre">Need {4 - uploadedCount} more</Badge>
+          )}
+        </div>
+      </div>
 
-      {uploaded.length ? (
-        <ul className="mt-4 space-y-1 text-[14px]">
-          {uploaded.map((name) => (
-            <li key={name} className="flex items-center gap-2 text-muted">
-              <span aria-hidden className="text-seal">
-                ✓
-              </span>
-              {name}
-            </li>
+      <div className="rounded-card border-2 border-dashed border-line bg-paper/60 p-5 text-center transition-colors hover:border-seal/40">
+        <input
+          ref={fileInputRef}
+          id="photos"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif,.jpg,.jpeg,.jfif,.png,.webp,.heic,.heif,.avif,.gif"
+          multiple
+          onChange={handleFileChange}
+          disabled={busy}
+          className="hidden"
+        />
+        <div className="flex flex-col items-center justify-center gap-2">
+          <p className="text-[14px] font-medium text-ink">Drag and drop photos here, or click below</p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy}
+          >
+            {busy ? 'Uploading photographs…' : 'Choose files'}
+          </Button>
+          <p className="text-[12px] text-muted">Select one or multiple images at once (up to 10 MB each)</p>
+        </div>
+      </div>
+
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+
+      {images.length > 0 ? (
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {images.map((img, idx) => (
+            <div
+              key={img.storageKey || idx}
+              className={`group relative overflow-hidden rounded-card border bg-white shadow-sm transition-all ${
+                img.isCover ? 'border-seal ring-2 ring-seal/20' : 'border-line'
+              }`}
+            >
+              <div className="relative aspect-[4/3] w-full overflow-hidden bg-seal-soft">
+                {img.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={img.previewUrl}
+                    alt={img.fileName || `Photo ${idx + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center font-mono text-[11px] text-muted">
+                    No preview
+                  </div>
+                )}
+
+                {img.isCover ? (
+                  <span className="absolute left-2 top-2 rounded-pill bg-seal px-2 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-white shadow">
+                    Cover
+                  </span>
+                ) : null}
+
+                {img.status === 'uploading' ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-ink/50 text-[12px] font-medium text-white">
+                    Uploading…
+                  </div>
+                ) : null}
+
+                {img.status === 'error' ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-alert/80 p-2 text-center text-[11px] text-white">
+                    {img.errorMessage || 'Upload failed'}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="p-2.5">
+                <p className="truncate text-[12px] font-medium text-ink" title={img.fileName}>
+                  {img.fileName || `Photo ${idx + 1}`}
+                </p>
+                {img.fileSize ? (
+                  <p className="text-[11px] text-muted">{(img.fileSize / (1024 * 1024)).toFixed(1)} MB</p>
+                ) : null}
+
+                <div className="mt-2 flex items-center justify-between gap-1 border-t border-line/60 pt-2">
+                  {!img.isCover && img.status === 'uploaded' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSetCover(img)}
+                      className="text-[11px] font-medium text-seal hover:underline"
+                    >
+                      Set cover
+                    </button>
+                  ) : (
+                    <span className="text-[11px] text-muted">{img.isCover ? 'Primary' : ''}</span>
+                  )}
+
+                  <div className="flex items-center gap-1">
+                    {idx > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleMove(idx, 'up')}
+                        title="Move left"
+                        className="rounded px-1 text-[11px] text-muted hover:bg-seal-soft hover:text-ink"
+                      >
+                        ←
+                      </button>
+                    ) : null}
+                    {idx < images.length - 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => handleMove(idx, 'down')}
+                        title="Move right"
+                        className="rounded px-1 text-[11px] text-muted hover:bg-seal-soft hover:text-ink"
+                      >
+                        →
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(img)}
+                      title="Remove photograph"
+                      className="rounded px-1 text-[11px] text-alert hover:bg-alert/10"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       ) : null}
-
-      {error ? <div className="mt-3">{<ErrorNote>{error}</ErrorNote>}</div> : null}
     </div>
   );
 }
+

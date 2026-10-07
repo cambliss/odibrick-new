@@ -6,12 +6,17 @@ import { AuthUser } from '../../common/auth/auth.types';
 import { newPublicId, propertySlug } from '../../common/util/ids';
 import { pageParams, paginate, Paginated } from '../../common/util/pagination';
 import { CreatePropertyDto, PropertySearchDto, UpdatePropertyDto } from './properties.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const PUBLIC_STATUSES = ['ACTIVE', 'RENTED', 'SOLD'];
 
 @Injectable()
 export class PropertiesService {
-  constructor(private readonly db: DatabaseService, private readonly audit: AuditService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly audit: AuditService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // -------------------------------------------------------------- search (public)
   async search(dto: PropertySearchDto): Promise<Paginated<any>> {
@@ -78,7 +83,7 @@ export class PropertiesService {
       `SELECT p.id, p.public_id, p.slug, p.title, p.listing_type, p.property_type, p.bedrooms,
               p.bathrooms, p.builtup_area_sqft, p.carpet_area_sqft, p.furnishing, p.rent_amount,
               p.sale_price, p.security_deposit, p.maintenance_amount, p.locality, p.city, p.state,
-              p.latitude, p.longitude, p.available_from, p.is_protected, p.is_featured,
+              p.latitude, p.longitude, p.available_from, p.is_protected, p.is_featured, p.visibility_tier, p.promoted_until,
               p.listed_by_role, p.view_count, p.published_at,
               (SELECT pi.storage_key FROM property_images pi WHERE pi.property_id = p.id
                 ORDER BY pi.is_cover DESC, pi.sort_order ASC LIMIT 1) AS cover_key,
@@ -86,7 +91,7 @@ export class PropertiesService {
                 WHERE pv.property_id = p.id AND pv.status = 'VERIFIED') AS verified_checks
          FROM properties p
         WHERE ${clause}
-        ORDER BY p.is_featured DESC, ${sort}
+        ORDER BY FIELD(p.visibility_tier, 'PREMIUM', 'FEATURED', 'PROMOTED', 'STANDARD'), p.is_featured DESC, ${sort}
         LIMIT ? OFFSET ?`,
       [...params, perPage, offset],
     );
@@ -270,6 +275,8 @@ export class PropertiesService {
 
     const map: Record<string, unknown> = {
       title: dto.title,
+      listing_type: dto.listingType,
+      property_type: dto.propertyType,
       bedrooms: dto.bedrooms,
       bathrooms: dto.bathrooms,
       balconies: dto.balconies,
@@ -287,6 +294,7 @@ export class PropertiesService {
       security_deposit: dto.securityDeposit,
       maintenance_amount: dto.maintenanceAmount,
       maintenance_period: dto.maintenancePeriod,
+      price_negotiable: dto.priceNegotiable === undefined ? undefined : dto.priceNegotiable ? 1 : 0,
       lock_in_months: dto.lockInMonths,
       notice_period_days: dto.noticePeriodDays,
       address_line1: dto.addressLine1,
@@ -298,8 +306,9 @@ export class PropertiesService {
       latitude: dto.latitude,
       longitude: dto.longitude,
       available_from: dto.availableFrom,
-      preferred_tenants: dto.preferredTenants?.join(','),
+      preferred_tenants: dto.preferredTenants ? (Array.isArray(dto.preferredTenants) ? dto.preferredTenants.join(',') : dto.preferredTenants) : undefined,
       pets_allowed: dto.petsAllowed === undefined ? undefined : dto.petsAllowed ? 1 : 0,
+      non_veg_allowed: dto.nonVegAllowed === undefined ? undefined : dto.nonVegAllowed ? 1 : 0,
       description: dto.description,
       house_rules: dto.houseRules,
       wizard_step: dto.wizardStep,
@@ -333,7 +342,7 @@ export class PropertiesService {
     const images = await this.db.one<{ c: number }>(
       'SELECT COUNT(*) AS c FROM property_images WHERE property_id = ?', [id],
     );
-    if ((images?.c ?? 0) < 3) throw new BadRequestException('Add at least 3 photographs before submitting.');
+    if ((images?.c ?? 0) < 4) throw new BadRequestException('Add at least 4 photographs before submitting.');
 
     await this.db.update('properties', id, { status: 'PENDING_VERIFICATION', rejection_reason: null });
 
@@ -397,11 +406,239 @@ export class PropertiesService {
     return this.db.query('SELECT check_type, status, verified_at FROM property_verifications WHERE property_id = ?', [id]);
   }
 
+  async getPropertyDeletionEligibility(user: AuthUser, id: number) {
+    const property = await this.assertCanEdit(user, id);
+
+    const [
+      enquiriesRes,
+      viewingsRes,
+      visitsRes,
+      applicationsRes,
+      tenanciesRes,
+      agreementsRes,
+      paymentsRes,
+      disputesRes,
+      riskCasesRes,
+      maintenanceRes,
+    ] = await Promise.all([
+      this.db.one<any>('SELECT COUNT(*) AS total FROM enquiries WHERE property_id = ?', [id]),
+      this.db.one<any>('SELECT COUNT(*) AS total FROM viewings WHERE property_id = ?', [id]),
+      this.db.one<any>('SELECT COUNT(*) AS total FROM property_visits WHERE property_id = ?', [id]),
+      this.db.one<any>('SELECT COUNT(*) AS total FROM applications WHERE property_id = ?', [id]),
+      this.db.one<any>('SELECT COUNT(*) AS total FROM tenancies WHERE property_id = ?', [id]),
+      this.db.one<any>(
+        'SELECT COUNT(*) AS total FROM agreements WHERE tenancy_id IN (SELECT id FROM tenancies WHERE property_id = ?)',
+        [id],
+      ),
+      this.db.one<any>(
+        'SELECT COUNT(*) AS total FROM payments WHERE property_id = ? OR tenancy_id IN (SELECT id FROM tenancies WHERE property_id = ?)',
+        [id, id],
+      ),
+      this.db.one<any>(
+        'SELECT COUNT(*) AS total FROM disputes WHERE tenancy_id IN (SELECT id FROM tenancies WHERE property_id = ?)',
+        [id],
+      ),
+      this.db.one<any>(
+        'SELECT COUNT(*) AS total FROM risk_cases WHERE subject_property_id = ?',
+        [id],
+      ),
+      this.db.one<any>(
+        'SELECT COUNT(*) AS total FROM maintenance_requests WHERE property_id = ? OR tenancy_id IN (SELECT id FROM tenancies WHERE property_id = ?)',
+        [id, id],
+      ),
+    ]);
+
+    const enquiries = Number(enquiriesRes?.total || 0);
+    const visits = Number(viewingsRes?.total || 0) + Number(visitsRes?.total || 0);
+    const applications = Number(applicationsRes?.total || 0);
+    const tenancies = Number(tenanciesRes?.total || 0);
+    const agreements = Number(agreementsRes?.total || 0);
+    const payments = Number(paymentsRes?.total || 0);
+    const disputes = Number(disputesRes?.total || 0);
+    const riskCases = Number(riskCasesRes?.total || 0);
+    const maintenance = Number(maintenanceRes?.total || 0);
+
+    const dependencies = {
+      enquiries,
+      visits,
+      applications,
+      tenancies,
+      agreements,
+      payments,
+      disputes,
+      riskCases,
+      maintenance,
+    };
+
+    const hasFinancialOrLegalHistory =
+      tenancies > 0 ||
+      agreements > 0 ||
+      payments > 0 ||
+      disputes > 0 ||
+      riskCases > 0 ||
+      ['RENTED', 'SOLD'].includes(property.status);
+
+    const hasInteractionHistory = enquiries > 0 || visits > 0 || applications > 0 || maintenance > 0;
+
+    const totalProtectedDependencies =
+      enquiries + visits + applications + tenancies + agreements + payments + disputes + riskCases + maintenance;
+
+    const blockers: string[] = [];
+    if (['RENTED', 'SOLD'].includes(property.status)) {
+      blockers.push(`Property is currently in ${property.status} status`);
+    }
+    if (tenancies > 0) blockers.push(`Property has ${tenancies} tenancy record(s)`);
+    if (agreements > 0) blockers.push(`Property has ${agreements} legal agreement(s)`);
+    if (payments > 0) blockers.push(`Property has ${payments} payment transaction(s)`);
+    if (disputes > 0) blockers.push(`Property has ${disputes} dispute case(s)`);
+    if (riskCases > 0) blockers.push(`Property has ${riskCases} risk management case(s)`);
+    if (applications > 0) blockers.push(`Property has ${applications} rental application(s)`);
+    if (enquiries > 0) blockers.push(`Property has ${enquiries} customer enquiry/enquiries`);
+    if (visits > 0) blockers.push(`Property has ${visits} scheduled visit(s)/viewing(s)`);
+    if (maintenance > 0) blockers.push(`Property has ${maintenance} maintenance request(s)`);
+
+    const canHardDelete = totalProtectedDependencies === 0 && !hasFinancialOrLegalHistory;
+    const canArchive = property.status !== 'ARCHIVED';
+
+    const action: 'DELETE' | 'ARCHIVE' = canHardDelete ? 'DELETE' : 'ARCHIVE';
+    const actionLabel = canHardDelete ? 'Delete permanently' : 'Archive and remove from marketplace';
+    const explanation = canHardDelete
+      ? 'This property has no connected inquiries, applications, tenancies, or payment history. Removing it will permanently delete the property.'
+      : 'This property has protected rental, financial, or lifecycle history. Removing it will archive it from the public marketplace while 100% preserving all historical and financial records.';
+
+    return {
+      propertyId: id,
+      title: property.title,
+      status: property.status,
+      action,
+      actionLabel,
+      explanation,
+      canHardDelete,
+      canArchive,
+      hasFinancialOrLegalHistory,
+      hasInteractionHistory,
+      dependencies,
+      blockers,
+    };
+  }
+
+  async removeProperty(user: AuthUser, id: number, reason?: string, req?: Request) {
+    const eligibility = await this.getPropertyDeletionEligibility(user, id);
+
+    if (eligibility.canHardDelete) {
+      return this.deleteProperty(user, id, req);
+    } else {
+      const archiveReason = reason?.trim() || 'Removed from marketplace by authorized manager';
+      return this.archiveProperty(user, id, archiveReason, req);
+    }
+  }
+
+  async deleteProperty(user: AuthUser, id: number, req?: Request) {
+    const eligibility = await this.getPropertyDeletionEligibility(user, id);
+
+    if (!eligibility.canHardDelete) {
+      const reasonText = eligibility.blockers.join('; ');
+      throw new BadRequestException(
+        `This property cannot be permanently deleted because it has protected lifecycle dependencies. Blockers: ${reasonText}. Use "Archive Property" instead.`,
+      );
+    }
+
+    // Clean up draft/property sub-records safely
+    await this.db.execute('DELETE FROM property_amenities WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM property_images WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM property_verifications WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM property_views WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM property_interactions WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM property_timeline WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM saved_properties WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM listing_promotions WHERE listing_id = ?', [id]);
+    await this.db.execute('DELETE FROM property_units WHERE property_id = ?', [id]);
+    await this.db.execute('DELETE FROM properties WHERE id = ?', [id]);
+
+    await this.audit.record({
+      actor: user,
+      action: 'property.deleted',
+      objectType: 'property',
+      objectId: id,
+      metadata: {
+        title: eligibility.title,
+        status: eligibility.status,
+        deletedPermanently: true,
+      },
+      req,
+    });
+
+    return {
+      success: true,
+      action: 'DELETE',
+      message: 'Property permanently deleted.',
+      propertyId: id,
+    };
+  }
+
+  async archiveProperty(user: AuthUser, id: number, reason: string, req?: Request) {
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('A valid archive reason is required.');
+    }
+
+    const property = await this.assertCanEdit(user, id);
+    if (property.status === 'ARCHIVED') {
+      throw new BadRequestException('This property is already archived.');
+    }
+
+    const previousStatus = property.status;
+
+    await this.db.update('properties', id, {
+      status: 'ARCHIVED',
+    });
+
+    await this.db.insert('property_timeline', {
+      property_id: id,
+      event_code: 'PROPERTY_ARCHIVED',
+      title: 'Property archived',
+      detail: `Archived by ${user.fullName}: ${reason.trim()}`,
+      actor_id: user.id,
+    });
+
+    await this.audit.record({
+      actor: user,
+      action: 'property.archived',
+      objectType: 'property',
+      objectId: id,
+      metadata: {
+        title: property.title,
+        previousStatus,
+        newStatus: 'ARCHIVED',
+        reason: reason.trim(),
+      },
+      req,
+    });
+
+    const isStaff = user.permissions.includes('property.moderate');
+    if (isStaff && property.listed_by_user_id !== user.id) {
+      try {
+        await this.notifications.send(property.listed_by_user_id, 'PROPERTY_STATUS_CHANGE', {
+          title: 'Property Archived by Management',
+          body: `Your property "${property.title}" has been archived by Odibrick Management. Reason: ${reason.trim()}`,
+          actionUrl: '/dashboard/properties',
+          severity: 'WARNING',
+        });
+      } catch (e) {
+        // Non-fatal notification failure
+      }
+    }
+
+    return {
+      success: true,
+      status: 'ARCHIVED',
+      action: 'ARCHIVE',
+      message: 'Property archived successfully.',
+      propertyId: id,
+    };
+  }
+
   async archive(user: AuthUser, id: number, req?: Request) {
-    await this.assertCanEdit(user, id);
-    await this.db.update('properties', id, { status: 'ARCHIVED' });
-    await this.audit.record({ actor: user, action: 'property.archived', objectType: 'property', objectId: id, req });
-    return { status: 'ARCHIVED' };
+    return this.archiveProperty(user, id, 'Archived by user', req);
   }
 
   async duplicate(user: AuthUser, id: number) {
@@ -482,42 +719,157 @@ export class PropertiesService {
   async findOwned(user: AuthUser, id: number) {
     const row = await this.db.one<any>('SELECT * FROM properties WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!row) throw new NotFoundException('Listing not found.');
-    if (row.listed_by_user_id !== user.id && !user.permissions.includes('property.read.private')) {
-      throw new ForbiddenException('This listing belongs to another account.');
+    const isStaff = user.permissions.includes('property.moderate') || user.permissions.includes('property.read.private');
+    if (row.listed_by_user_id !== user.id && !isStaff) {
+      const { ownerId, agentId, builderId } = await this.partyIds(user.id);
+      const isParty = (ownerId && row.owner_id === ownerId) || (agentId && row.agent_id === agentId) || (builderId && row.builder_id === builderId);
+      if (!isParty) {
+        throw new ForbiddenException('This listing belongs to another account.');
+      }
     }
     const amenities = await this.db.query(
       'SELECT a.code FROM property_amenities pa JOIN amenities a ON a.id = pa.amenity_id WHERE pa.property_id = ?',
       [id],
     );
     const images = await this.db.query(
-      'SELECT id, storage_key, caption, is_cover, sort_order FROM property_images WHERE property_id = ? ORDER BY sort_order',
+      'SELECT id, storage_key, caption, room_tag, is_cover, sort_order, created_at FROM property_images WHERE property_id = ? ORDER BY is_cover DESC, sort_order ASC, id ASC',
       [id],
     );
     return { ...this.mapDetail(row, true), amenityCodes: amenities.map((a: any) => a.code), images };
   }
 
   // ------------------------------------------------------------------ media
-  async attachImage(user: AuthUser, propertyId: number, storageKey: string, caption?: string, roomTag?: string) {
+  async getImages(user: AuthUser, propertyId: number) {
+    const property = await this.db.one<any>('SELECT * FROM properties WHERE id = ? AND deleted_at IS NULL', [propertyId]);
+    if (!property) throw new NotFoundException('Listing not found.');
+
+    if (!PUBLIC_STATUSES.includes(property.status)) {
+      await this.assertCanEdit(user, propertyId);
+    }
+
+    return this.db.query(
+      'SELECT id, storage_key, caption, room_tag, is_cover, sort_order, created_at FROM property_images WHERE property_id = ? ORDER BY is_cover DESC, sort_order ASC, id ASC',
+      [propertyId],
+    );
+  }
+
+  async attachImage(
+    user: AuthUser,
+    propertyId: number,
+    storageKey: string,
+    caption?: string,
+    roomTag?: string,
+    req?: Request,
+  ) {
     await this.assertCanEdit(user, propertyId);
     const count = await this.db.one<{ c: number }>(
-      'SELECT COUNT(*) AS c FROM property_images WHERE property_id = ?', [propertyId],
+      'SELECT COUNT(*) AS c FROM property_images WHERE property_id = ?',
+      [propertyId],
     );
+    const isCover = (count?.c ?? 0) === 0 ? 1 : 0;
+    const sortOrder = count?.c ?? 0;
     const id = await this.db.insert('property_images', {
       property_id: propertyId,
       storage_key: storageKey,
       caption: caption ?? null,
       room_tag: roomTag ?? null,
-      is_cover: (count?.c ?? 0) === 0 ? 1 : 0,
-      sort_order: count?.c ?? 0,
+      is_cover: isCover,
+      sort_order: sortOrder,
     });
     await this.recalculateQuality(propertyId);
-    return { id, storageKey };
+    await this.audit.record({
+      actor: user,
+      action: 'property.image_attached',
+      objectType: 'property',
+      objectId: propertyId,
+      metadata: { imageId: id, storageKey, isCover },
+      req,
+    });
+    return { id, storageKey, isCover, sortOrder };
   }
 
-  async removeImage(user: AuthUser, propertyId: number, imageId: number) {
+  async setCoverImage(user: AuthUser, propertyId: number, imageId: number, req?: Request) {
     await this.assertCanEdit(user, propertyId);
+    const img = await this.db.one<any>(
+      'SELECT id FROM property_images WHERE id = ? AND property_id = ?',
+      [imageId, propertyId],
+    );
+    if (!img) throw new NotFoundException('Photograph not found on this listing.');
+
+    await this.db.execute('UPDATE property_images SET is_cover = 0 WHERE property_id = ?', [propertyId]);
+    await this.db.execute('UPDATE property_images SET is_cover = 1 WHERE id = ? AND property_id = ?', [
+      imageId,
+      propertyId,
+    ]);
+
+    await this.audit.record({
+      actor: user,
+      action: 'property.cover_image_set',
+      objectType: 'property',
+      objectId: propertyId,
+      metadata: { imageId },
+      req,
+    });
+
+    return { success: true, coverImageId: imageId };
+  }
+
+  async reorderImages(user: AuthUser, propertyId: number, imageIds: number[], req?: Request) {
+    await this.assertCanEdit(user, propertyId);
+    if (!Array.isArray(imageIds)) {
+      throw new BadRequestException('imageIds must be an array of image IDs.');
+    }
+
+    for (let i = 0; i < imageIds.length; i++) {
+      await this.db.execute(
+        'UPDATE property_images SET sort_order = ? WHERE id = ? AND property_id = ?',
+        [i, imageIds[i], propertyId],
+      );
+    }
+
+    await this.audit.record({
+      actor: user,
+      action: 'property.images_reordered',
+      objectType: 'property',
+      objectId: propertyId,
+      metadata: { imageIds },
+      req,
+    });
+
+    return { success: true };
+  }
+
+  async removeImage(user: AuthUser, propertyId: number, imageId: number, req?: Request) {
+    await this.assertCanEdit(user, propertyId);
+    const img = await this.db.one<any>(
+      'SELECT * FROM property_images WHERE id = ? AND property_id = ?',
+      [imageId, propertyId],
+    );
+    if (!img) throw new NotFoundException('Photograph not found on this listing.');
+
     await this.db.execute('DELETE FROM property_images WHERE id = ? AND property_id = ?', [imageId, propertyId]);
+
+    if (img.is_cover) {
+      const nextFirst = await this.db.one<any>(
+        'SELECT id FROM property_images WHERE property_id = ? ORDER BY sort_order ASC, id ASC LIMIT 1',
+        [propertyId],
+      );
+      if (nextFirst) {
+        await this.db.execute('UPDATE property_images SET is_cover = 1 WHERE id = ?', [nextFirst.id]);
+      }
+    }
+
     await this.recalculateQuality(propertyId);
+    await this.audit.record({
+      actor: user,
+      action: 'property.image_removed',
+      objectType: 'property',
+      objectId: propertyId,
+      metadata: { imageId },
+      req,
+    });
+
+    return { success: true };
   }
 
   // -------------------------------------------------------------- internals
@@ -535,16 +887,27 @@ export class PropertiesService {
     const row = await this.db.one<any>('SELECT * FROM properties WHERE id = ? AND deleted_at IS NULL', [id]);
     if (!row) throw new NotFoundException('Listing not found.');
     const isStaff = user.permissions.includes('property.moderate');
-    if (row.listed_by_user_id !== user.id && !isStaff) {
-      throw new ForbiddenException('This listing belongs to another account.');
+    if (isStaff) {
+      return row;
     }
-    return row;
+    if (!user.permissions.includes('property.update.own')) {
+      throw new ForbiddenException('You do not have permission to update properties.');
+    }
+    if (row.listed_by_user_id === user.id) {
+      return row;
+    }
+    const { ownerId, agentId, builderId } = await this.partyIds(user.id);
+    if ((ownerId && row.owner_id === ownerId) || (agentId && row.agent_id === agentId) || (builderId && row.builder_id === builderId)) {
+      return row;
+    }
+    throw new ForbiddenException('This listing belongs to another account.');
   }
 
   private resolveListerRole(user: AuthUser): 'OWNER' | 'AGENT' | 'BUILDER' {
     if (user.roles.includes('AGENT')) return 'AGENT';
     if (user.roles.includes('BUILDER')) return 'BUILDER';
     if (user.roles.includes('OWNER')) return 'OWNER';
+    if (user.roles.includes('SUPER_ADMIN') || user.roles.includes('ADMIN')) return 'OWNER';
     throw new ForbiddenException('Add an owner, agent or builder profile before listing a property.');
   }
 
@@ -613,6 +976,8 @@ export class PropertiesService {
     availableFrom: row.available_from,
     isProtected: !!row.is_protected,
     isFeatured: !!row.is_featured,
+    visibilityTier: row.visibility_tier || 'STANDARD',
+    promotedUntil: row.promoted_until,
     listedByRole: row.listed_by_role,
     views: row.view_count,
     coverKey: row.cover_key,
@@ -645,6 +1010,7 @@ export class PropertiesService {
       securityDeposit: row.security_deposit,
       maintenanceAmount: row.maintenance_amount,
       maintenancePeriod: row.maintenance_period,
+      priceNegotiable: !!row.price_negotiable,
       lockInMonths: row.lock_in_months,
       noticePeriodDays: row.notice_period_days,
       locality: row.locality,
@@ -656,6 +1022,7 @@ export class PropertiesService {
       availableFrom: row.available_from,
       preferredTenants: row.preferred_tenants ? String(row.preferred_tenants).split(',') : [],
       petsAllowed: !!row.pets_allowed,
+      nonVegAllowed: row.non_veg_allowed === null || row.non_veg_allowed === undefined ? true : !!row.non_veg_allowed,
       description: row.description,
       houseRules: row.house_rules,
       isProtected: !!row.is_protected,
