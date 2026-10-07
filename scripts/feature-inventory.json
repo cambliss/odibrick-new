@@ -1,0 +1,3769 @@
+{
+  "apiEndpoints": [
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/kpis",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/ledger",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/reminders/run",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/payment-escalations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/governance-overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/users",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/users/:id/status",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/users/:id/roles",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/settings",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/settings/:key",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/commission-rules",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commission-rules",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/audit",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "admin",
+      "file": "apps\\api\\src\\modules\\admin\\admin.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/fraud-signals",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/properties",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/leads",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/visits",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/applications",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/tenancies",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/legal",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/finance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/payments",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/maintenance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/disputes",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/compliance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/operations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/automation",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/analytics/:reportType",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "analytics",
+      "file": "apps\\api\\src\\modules\\analytics\\analytics.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/analytics/:reportType/export",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "auth",
+      "file": "apps\\api\\src\\modules\\auth\\auth.controller.ts",
+      "method": "POST",
+      "path": "/api/auth/register",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "register"
+    },
+    {
+      "module": "auth",
+      "file": "apps\\api\\src\\modules\\auth\\auth.controller.ts",
+      "method": "POST",
+      "path": "/api/auth/login",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "login"
+    },
+    {
+      "module": "auth",
+      "file": "apps\\api\\src\\modules\\auth\\auth.controller.ts",
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "refresh"
+    },
+    {
+      "module": "auth",
+      "file": "apps\\api\\src\\modules\\auth\\auth.controller.ts",
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "logout"
+    },
+    {
+      "module": "auth",
+      "file": "apps\\api\\src\\modules\\auth\\auth.controller.ts",
+      "method": "GET",
+      "path": "/api/auth/me",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "me"
+    },
+    {
+      "module": "auth",
+      "file": "apps\\api\\src\\modules\\auth\\auth.controller.ts",
+      "method": "POST",
+      "path": "/api/auth/password",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "changePassword"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/automation/analytics",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/automation/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/automation/events",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/automation/executions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/automation/failures",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/automation/rules",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/automation/rules/:id/toggle",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/automation/executions/:id/retry",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/automation/executions/:id/acknowledge",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/automation/run-scheduler",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/automation",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/automation",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getPreferences"
+    },
+    {
+      "module": "automation",
+      "file": "apps\\api\\src\\modules\\automation\\automation.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/automation",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "updatePreference"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "GET",
+      "path": "/api/conversations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "GET",
+      "path": "/api/conversations/context/:contextType/:contextId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "GET",
+      "path": "/api/conversations/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "GET",
+      "path": "/api/conversations/:id/messages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/messages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/read",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/internal-note",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "PATCH",
+      "path": "/api/conversations/messages/:messageId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "DELETE",
+      "path": "/api/conversations/messages/:messageId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/escalate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/resolve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/reopen",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/conversations/:id/close",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/conversations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/conversations/analytics",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "communications",
+      "file": "apps\\api\\src\\modules\\communications\\communications.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/conversations/process-sla",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "GET",
+      "path": "/api/compliance/requirements/:contextType/:contextId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "resolveRequirements"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "GET",
+      "path": "/api/compliance/exceptions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "POST",
+      "path": "/api/compliance/exceptions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "POST",
+      "path": "/api/compliance/exceptions/:id/resolve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "POST",
+      "path": "/api/compliance/exceptions/:id/override",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "POST",
+      "path": "/api/compliance/exceptions/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "GET",
+      "path": "/api/compliance/analytics",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "GET",
+      "path": "/api/compliance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "compliance",
+      "file": "apps\\api\\src\\modules\\compliance\\compliance.controller.ts",
+      "method": "POST",
+      "path": "/api/compliance/process-expiry",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "GET",
+      "path": "/api/inspections/checklist",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "checklist"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "GET",
+      "path": "/api/inspections",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "forTenancy"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "POST",
+      "path": "/api/inspections",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "start"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "GET",
+      "path": "/api/inspections/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "detail"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "PUT",
+      "path": "/api/inspections/:id/items",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "saveItems"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "POST",
+      "path": "/api/inspections/:id/media",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "addMedia"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "POST",
+      "path": "/api/inspections/:id/submit",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "submit"
+    },
+    {
+      "module": "inspections",
+      "file": "apps\\api\\src\\modules\\inspections\\inspections.controller.ts",
+      "method": "POST",
+      "path": "/api/inspections/:id/acknowledge",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "acknowledge"
+    },
+    {
+      "module": "insurance",
+      "file": "apps\\api\\src\\modules\\insurance\\insurance.controller.ts",
+      "method": "GET",
+      "path": "/api/insurance/products",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "catalogue"
+    },
+    {
+      "module": "insurance",
+      "file": "apps\\api\\src\\modules\\insurance\\insurance.controller.ts",
+      "method": "POST",
+      "path": "/api/insurance/quotes",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "quote"
+    },
+    {
+      "module": "insurance",
+      "file": "apps\\api\\src\\modules\\insurance\\insurance.controller.ts",
+      "method": "POST",
+      "path": "/api/insurance/quotes/:id/accept",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "accept"
+    },
+    {
+      "module": "insurance",
+      "file": "apps\\api\\src\\modules\\insurance\\insurance.controller.ts",
+      "method": "GET",
+      "path": "/api/insurance/policies",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "policies"
+    },
+    {
+      "module": "insurance",
+      "file": "apps\\api\\src\\modules\\insurance\\insurance.controller.ts",
+      "method": "POST",
+      "path": "/api/insurance/policies/:id/confirm",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/integrations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/integrations/health",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/integrations/webhooks",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/integrations/webhooks/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/integrations/webhooks/:id/retry",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/integrations/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/integrations/:id/test",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/integrations/:id/toggle",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/integrations/:id/action",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "integrations",
+      "file": "apps\\api\\src\\modules\\integrations\\integrations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/integrations/:provider",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "receiveWebhook"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "GET",
+      "path": "/api/kyc/me",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "status"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "GET",
+      "path": "/api/kyc/user/:userId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "submitLegacy"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/submit",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "submit"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "GET",
+      "path": "/api/kyc/queue",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/:id/verify",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/:id/reject",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/:id/request-documents",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/:id/suspend",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/:id/reopen",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "kyc",
+      "file": "apps\\api\\src\\modules\\kyc\\kyc.controller.ts",
+      "method": "POST",
+      "path": "/api/kyc/:id/decision",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "GET",
+      "path": "/api/legal/cases",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "GET",
+      "path": "/api/legal/cases/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "caseDetail"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "POST",
+      "path": "/api/legal/cases/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "POST",
+      "path": "/api/legal/cases/:id/notes",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "GET",
+      "path": "/api/legal/clauses",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "POST",
+      "path": "/api/legal/cases/:id/draft",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "GET",
+      "path": "/api/agreements/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "agreement"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "POST",
+      "path": "/api/agreements/:id/approve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "POST",
+      "path": "/api/agreements/:id/sign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "sign"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "POST",
+      "path": "/api/legal/meetings",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "GET",
+      "path": "/api/legal/meetings/mine",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "meetings"
+    },
+    {
+      "module": "legal",
+      "file": "apps\\api\\src\\modules\\legal\\legal.controller.ts",
+      "method": "POST",
+      "path": "/api/legal/meetings/:id/complete",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "GET",
+      "path": "/api/marketing/packages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "packages"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "POST",
+      "path": "/api/marketing/packages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "PATCH",
+      "path": "/api/marketing/packages/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "POST",
+      "path": "/api/marketing/orders",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "order"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "GET",
+      "path": "/api/marketing/orders/mine",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "myOrders"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "GET",
+      "path": "/api/marketing/campaigns",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "GET",
+      "path": "/api/marketing/campaigns/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "performance"
+    },
+    {
+      "module": "marketing",
+      "file": "apps\\api\\src\\modules\\marketing\\marketing.controller.ts",
+      "method": "PATCH",
+      "path": "/api/marketing/campaigns/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "notifications",
+      "file": "apps\\api\\src\\modules\\notifications\\notifications.controller.ts",
+      "method": "GET",
+      "path": "/api/notifications",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "list"
+    },
+    {
+      "module": "notifications",
+      "file": "apps\\api\\src\\modules\\notifications\\notifications.controller.ts",
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "count"
+    },
+    {
+      "module": "notifications",
+      "file": "apps\\api\\src\\modules\\notifications\\notifications.controller.ts",
+      "method": "PATCH",
+      "path": "/api/notifications/read",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "markRead"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/operations/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/operations/exceptions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/operations/tasks",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/operations/tasks/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/operations/tasks",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/operations/tasks/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/operations/tasks/:id/priority",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/operations/tasks/:id/status",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/operations/tasks/:id/escalate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/operations/tasks/:id/resolve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/operations/tasks/:id/reopen",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operational-tasks.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/operations/tasks/:id/comments",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/maintenance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "createMaintenance"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/maintenance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listMaintenance"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/maintenance/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "maintenanceDetail"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/maintenance/:id/financial",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getMaintenanceFinancial"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/maintenance/:id/financial-approve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/maintenance/:id/financial-reject",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/maintenance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "PATCH",
+      "path": "/api/maintenance/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "updateMaintenance"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "createDispute"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/disputes",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listDisputes"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/disputes/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "disputeDetail"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes/:id/evidence",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "addEvidence"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "assignDispute"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes/:id/escalate-legal",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "escalateToLegal"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes/:id/resolve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "resolveDispute"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes/:id/reopen",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "reopenDispute"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes/:id/close",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "closeDispute"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/disputes/:id/messages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getDisputeMessages"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/disputes/:id/messages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "sendDisputeMessage"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "PATCH",
+      "path": "/api/disputes/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "updateDispute"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/support/tickets",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "createTicket"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/support/tickets",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listTickets"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "GET",
+      "path": "/api/support/tickets/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "ticketDetail"
+    },
+    {
+      "module": "operations",
+      "file": "apps\\api\\src\\modules\\operations\\operations.controller.ts",
+      "method": "POST",
+      "path": "/api/support/tickets/:id/messages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "reply"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/commercial/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/commercial/rules",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/rules",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/commercial/rules/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "PATCH",
+      "path": "/api/admin/commercial/rules/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/rules/:id/activate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/rules/:id/deactivate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/rules/preview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/commercial/obligations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/obligations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/commercial/obligations/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/obligations/:id/approve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/obligations/:id/waive",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/obligations/:id/adjust",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/commercial/obligations/:id/cancel",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\commercial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/commercial/revenue",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/control-overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getControlOverview"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/reconciliation/run",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "runReconciliation"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/reconciliation/runs",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listReconciliationRuns"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/reconciliation/runs/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getReconciliationRun"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/exceptions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listExceptions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/exceptions/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getException"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/exceptions/:id/acknowledge",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "acknowledgeException"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/exceptions/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "assignException"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/exceptions/:id/resolve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "resolveException"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/exceptions/:id/reopen",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "reopenException"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/periods",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listPeriods"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/periods/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getPeriod"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/periods",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "createPeriod"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/periods/:id/review",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "reviewPeriod"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/periods/:id/close",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "closePeriod"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/revenue-breakdown",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getPlatformRevenueBreakdown"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\financial-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/source-coverage",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getSourceCoverage"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\invoices.controller.ts",
+      "method": "GET",
+      "path": "/api/invoices",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "list"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\invoices.controller.ts",
+      "method": "GET",
+      "path": "/api/invoices/issuer-profile",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\invoices.controller.ts",
+      "method": "PUT",
+      "path": "/api/invoices/issuer-profile",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\invoices.controller.ts",
+      "method": "POST",
+      "path": "/api/invoices/from-payment/:paymentId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\invoices.controller.ts",
+      "method": "GET",
+      "path": "/api/invoices/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getOne"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\invoices.controller.ts",
+      "method": "GET",
+      "path": "/api/invoices/:id/pdf",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "downloadPdf"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\invoices.controller.ts",
+      "method": "POST",
+      "path": "/api/invoices/:id/cancel",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/payouts",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "list"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/payouts/preview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/payouts",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/finance/payouts/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getOne"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/payouts/:id/approve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/payouts/:id/reject",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/payouts/:id/hold",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/payouts/:id/process",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/payouts/:id/record-payment",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\owner-payouts.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/finance/payouts/:id/reconcile",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "GET",
+      "path": "/api/payments",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "list"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "GET",
+      "path": "/api/payments/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "ledger"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "GET",
+      "path": "/api/payments/:id/invoice",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "paymentInvoice"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "GET",
+      "path": "/api/payments/:id/reminders",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "reminders"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "POST",
+      "path": "/api/payments/:id/checkout",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "checkout"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "POST",
+      "path": "/api/payments/:id/pay",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "pay"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "POST",
+      "path": "/api/payments/generate-rent",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "generateRent"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "POST",
+      "path": "/api/payments/callback",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "callback"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "POST",
+      "path": "/api/payments/:id/record",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "POST",
+      "path": "/api/payments/:id/refund",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "GET",
+      "path": "/api/commissions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "payments",
+      "file": "apps\\api\\src\\modules\\payments\\payments.controller.ts",
+      "method": "POST",
+      "path": "/api/commissions/:id/invoice",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getOverview"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/preferences",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getPreferences"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "PUT",
+      "path": "/api/customer/preferences",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "upsertPreferences"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/saved-properties",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getSavedProperties"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "POST",
+      "path": "/api/customer/saved-properties/:propertyId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "saveProperty"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "DELETE",
+      "path": "/api/customer/saved-properties/:propertyId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "unsaveProperty"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/saved-searches",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getSavedSearches"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "POST",
+      "path": "/api/customer/saved-searches",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "createSavedSearch"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "PATCH",
+      "path": "/api/customer/saved-searches/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "updateSavedSearch"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "DELETE",
+      "path": "/api/customer/saved-searches/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "deleteSavedSearch"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/recently-viewed",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getRecentlyViewed"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/recommendations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getRecommendations"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "POST",
+      "path": "/api/customer/interactions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "trackInteraction"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/action-centre",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/listing-performance",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "GET",
+      "path": "/api/customer/demand-insights",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "personalization",
+      "file": "apps\\api\\src\\modules\\personalization\\personalization.controller.ts",
+      "method": "POST",
+      "path": "/api/customer/:id/view",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "trackView"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/listings",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/listings/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/listings/:id/moderate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/listings/:id/override",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/listings/:id/check-duplicate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/promotions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/promotions/process-expiries",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/leads",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/attribution",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/analytics",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/stale",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/process-sla-escalations",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/reassign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/mark-spam",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/mark-duplicate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/reopen",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listLeads"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/analytics",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "analytics"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getLead"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/acknowledge",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "acknowledge"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/contact",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "contact"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/qualify",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "qualify"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/follow-up",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "addFollowUp"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/lost",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "markLost"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/convert",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "convert"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/close",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "close"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/saved-properties",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "savedProperties"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/saved-properties/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "toggleSaved"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "DELETE",
+      "path": "/api/admin/marketplace/saved-properties/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "unsaved"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/enquiries",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "myEnquiries"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/enquiries/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getEnquiry"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/dashboard",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "dashboard"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/visits",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "myVisits"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/visits/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "requestVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits/:id/confirm",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "confirmVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits/:id/cancel",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "cancelVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits/:id/reschedule",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "rescheduleVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "listVisits"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/propose/:enquiryId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "propose"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/confirm",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "confirm"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/reschedule",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "reschedule"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/cancel",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "cancel"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/complete",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "complete"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/no-show",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "noShow"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/convert",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "convert"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/analytics",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/process-reminders",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/sla-escalate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/override",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/:id/cancel",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/packages",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "packages"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/listings/:id/packages/preview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "previewPackage"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/listings/:id/packages/purchase",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "purchasePackage"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/listings/:id/promotions",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "promotions"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/my-listings",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "myListings"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/leads/mine",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "myLeads"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/listings/:id/enquiries",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "submitEnquiry"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/leads",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "recordLead"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/my-visits",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "myVisits"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/marketplace/visits/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "requestVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits/:id/confirm",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "confirmVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits/:id/cancel",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "cancelVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\marketplace-operations.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/marketplace/visits/:id/reschedule",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "rescheduleVisit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "GET",
+      "path": "/api/properties",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "search"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "GET",
+      "path": "/api/properties/facets",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "facets"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "GET",
+      "path": "/api/properties/sitemap",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "sitemap"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "GET",
+      "path": "/api/properties/mine",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "Roles"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "GET",
+      "path": "/api/properties/moderation-queue",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "GET",
+      "path": "/api/properties/mine/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "findOwned"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "GET",
+      "path": "/api/properties/:identifier",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "detail"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "POST",
+      "path": "/api/properties",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "PATCH",
+      "path": "/api/properties/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "update"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "POST",
+      "path": "/api/properties/:id/submit",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "submit"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "POST",
+      "path": "/api/properties/:id/duplicate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "duplicate"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "DELETE",
+      "path": "/api/properties/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "archive"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "POST",
+      "path": "/api/properties/:id/moderate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "POST",
+      "path": "/api/properties/:id/verifications",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "POST",
+      "path": "/api/properties/:id/images",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "attachImage"
+    },
+    {
+      "module": "properties",
+      "file": "apps\\api\\src\\modules\\properties\\properties.controller.ts",
+      "method": "DELETE",
+      "path": "/api/properties/:id/images/:imageId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "removeImage"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/enquiries",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "createEnquiry"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "GET",
+      "path": "/api/enquiries/received",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "leads"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "PATCH",
+      "path": "/api/enquiries/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "updateEnquiry"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/viewings",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "requestViewing"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "PATCH",
+      "path": "/api/viewings/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "respondViewing"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/applications",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "apply"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "GET",
+      "path": "/api/applications/mine",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "mine"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "GET",
+      "path": "/api/applications/received",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "received"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/applications/:id/decision",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "decide"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "GET",
+      "path": "/api/tenancies",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "tenancies"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "GET",
+      "path": "/api/tenancies/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "tenancy"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "GET",
+      "path": "/api/tenancies/:id/financial-summary",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "financialSummary"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/renew",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "proposeRenewal"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/renew/confirm",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "confirmRenewal"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/move-out",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "requestMoveOut"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/move-out/confirm",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "confirmMoveOut"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/settlement",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "proposeSettlement"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/settlement/accept",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "acceptSettlement"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/settlement/dispute",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "disputeSettlement"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/applications/:id/admin-decide",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "rental",
+      "file": "apps\\api\\src\\modules\\rental\\rental.controller.ts",
+      "method": "POST",
+      "path": "/api/tenancies/:id/admin-override",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/overview",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/cases",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/cases/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/cases",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/cases/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/cases/:id/escalate",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/cases/:id/evidence",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/cases/:id/resolve",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/cases/:id/false-positive",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/cases/:id/reopen",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/signals",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/signals",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/security-events",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "POST",
+      "path": "/api/admin/risk/security-events",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/suspicious/payments",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/suspicious/accounts",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "risk",
+      "file": "apps\\api\\src\\modules\\risk\\risk.controller.ts",
+      "method": "GET",
+      "path": "/api/admin/risk/suspicious/listings",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/uploads",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "UseInterceptors"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "UseInterceptors"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "GET",
+      "path": "/api/documents",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "vault"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "GET",
+      "path": "/api/documents/:id",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "getDocument"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "GET",
+      "path": "/api/documents/:id/link",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "link"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents/:id/replace",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "UseInterceptors"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents/:id/submit-review",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "submitReview"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents/:id/verify",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents/:id/reject",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents/:id/request-replacement",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents/:id/archive",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "archiveDocument"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "POST",
+      "path": "/api/documents/:id/assign",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "RequirePermissions"
+    },
+    {
+      "module": "storage",
+      "file": "apps\\api\\src\\modules\\storage\\storage.controller.ts",
+      "method": "GET",
+      "path": "/api/documents/:id/download",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "download"
+    },
+    {
+      "module": "users",
+      "file": "apps\\api\\src\\modules\\users\\users.controller.ts",
+      "method": "GET",
+      "path": "/api/me/profile",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "profile"
+    },
+    {
+      "module": "users",
+      "file": "apps\\api\\src\\modules\\users\\users.controller.ts",
+      "method": "PATCH",
+      "path": "/api/me/profile",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "update"
+    },
+    {
+      "module": "users",
+      "file": "apps\\api\\src\\modules\\users\\users.controller.ts",
+      "method": "GET",
+      "path": "/api/me/summary",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "summary"
+    },
+    {
+      "module": "users",
+      "file": "apps\\api\\src\\modules\\users\\users.controller.ts",
+      "method": "GET",
+      "path": "/api/me/saved",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "saved"
+    },
+    {
+      "module": "users",
+      "file": "apps\\api\\src\\modules\\users\\users.controller.ts",
+      "method": "POST",
+      "path": "/api/me/saved/:propertyId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "toggleSaved"
+    },
+    {
+      "module": "users",
+      "file": "apps\\api\\src\\modules\\users\\users.controller.ts",
+      "method": "GET",
+      "path": "/api/profiles/:publicId",
+      "roles": "AUTHENTICATED",
+      "permissions": "NONE",
+      "handler": "publicProfile"
+    }
+  ],
+  "webPages": [
+    {
+      "route": "/dashboard/admin/analytics",
+      "file": "apps\\web\\app\\dashboard\\admin\\analytics\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/automation",
+      "file": "apps\\web\\app\\dashboard\\admin\\automation\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/commercial",
+      "file": "apps\\web\\app\\dashboard\\admin\\commercial\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/compliance",
+      "file": "apps\\web\\app\\dashboard\\admin\\compliance\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/finance",
+      "file": "apps\\web\\app\\dashboard\\admin\\finance\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/finance/payouts/[id]",
+      "file": "apps\\web\\app\\dashboard\\admin\\finance\\payouts\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/finance/reconciliation",
+      "file": "apps\\web\\app\\dashboard\\admin\\finance\\reconciliation\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/integrations",
+      "file": "apps\\web\\app\\dashboard\\admin\\integrations\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/integrations/webhooks",
+      "file": "apps\\web\\app\\dashboard\\admin\\integrations\\webhooks\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/invoices/[id]",
+      "file": "apps\\web\\app\\dashboard\\admin\\invoices\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/leads",
+      "file": "apps\\web\\app\\dashboard\\admin\\leads\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/marketplace",
+      "file": "apps\\web\\app\\dashboard\\admin\\marketplace\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/messages",
+      "file": "apps\\web\\app\\dashboard\\admin\\messages\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/operations",
+      "file": "apps\\web\\app\\dashboard\\admin\\operations\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/operations/[id]",
+      "file": "apps\\web\\app\\dashboard\\admin\\operations\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin",
+      "file": "apps\\web\\app\\dashboard\\admin\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/reports",
+      "file": "apps\\web\\app\\dashboard\\admin\\reports\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/risk",
+      "file": "apps\\web\\app\\dashboard\\admin\\risk\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/risk/[id]",
+      "file": "apps\\web\\app\\dashboard\\admin\\risk\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/admin/visits",
+      "file": "apps\\web\\app\\dashboard\\admin\\visits\\page.tsx"
+    },
+    {
+      "route": "/dashboard/agreements",
+      "file": "apps\\web\\app\\dashboard\\agreements\\page.tsx"
+    },
+    {
+      "route": "/dashboard/agreements/[id]",
+      "file": "apps\\web\\app\\dashboard\\agreements\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/applications",
+      "file": "apps\\web\\app\\dashboard\\applications\\page.tsx"
+    },
+    {
+      "route": "/dashboard/condition-report/new",
+      "file": "apps\\web\\app\\dashboard\\condition-report\\new\\page.tsx"
+    },
+    {
+      "route": "/dashboard/condition-report/[id]",
+      "file": "apps\\web\\app\\dashboard\\condition-report\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/disputes/new",
+      "file": "apps\\web\\app\\dashboard\\disputes\\new\\page.tsx"
+    },
+    {
+      "route": "/dashboard/disputes",
+      "file": "apps\\web\\app\\dashboard\\disputes\\page.tsx"
+    },
+    {
+      "route": "/dashboard/disputes/[id]",
+      "file": "apps\\web\\app\\dashboard\\disputes\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/documents",
+      "file": "apps\\web\\app\\dashboard\\documents\\page.tsx"
+    },
+    {
+      "route": "/dashboard/kyc",
+      "file": "apps\\web\\app\\dashboard\\kyc\\page.tsx"
+    },
+    {
+      "route": "/dashboard/leads",
+      "file": "apps\\web\\app\\dashboard\\leads\\page.tsx"
+    },
+    {
+      "route": "/dashboard/legal",
+      "file": "apps\\web\\app\\dashboard\\legal\\page.tsx"
+    },
+    {
+      "route": "/dashboard/legal/[id]/agreement",
+      "file": "apps\\web\\app\\dashboard\\legal\\[id]\\agreement\\page.tsx"
+    },
+    {
+      "route": "/dashboard/legal/[id]",
+      "file": "apps\\web\\app\\dashboard\\legal\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/maintenance/new",
+      "file": "apps\\web\\app\\dashboard\\maintenance\\new\\page.tsx"
+    },
+    {
+      "route": "/dashboard/maintenance",
+      "file": "apps\\web\\app\\dashboard\\maintenance\\page.tsx"
+    },
+    {
+      "route": "/dashboard/maintenance/[id]",
+      "file": "apps\\web\\app\\dashboard\\maintenance\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/messages",
+      "file": "apps\\web\\app\\dashboard\\messages\\page.tsx"
+    },
+    {
+      "route": "/dashboard",
+      "file": "apps\\web\\app\\dashboard\\page.tsx"
+    },
+    {
+      "route": "/dashboard/payments",
+      "file": "apps\\web\\app\\dashboard\\payments\\page.tsx"
+    },
+    {
+      "route": "/dashboard/properties/new",
+      "file": "apps\\web\\app\\dashboard\\properties\\new\\page.tsx"
+    },
+    {
+      "route": "/dashboard/properties",
+      "file": "apps\\web\\app\\dashboard\\properties\\page.tsx"
+    },
+    {
+      "route": "/dashboard/provider",
+      "file": "apps\\web\\app\\dashboard\\provider\\page.tsx"
+    },
+    {
+      "route": "/dashboard/saved-properties",
+      "file": "apps\\web\\app\\dashboard\\saved-properties\\page.tsx"
+    },
+    {
+      "route": "/dashboard/saved-searches",
+      "file": "apps\\web\\app\\dashboard\\saved-searches\\page.tsx"
+    },
+    {
+      "route": "/dashboard/tenancy/[id]",
+      "file": "apps\\web\\app\\dashboard\\tenancy\\[id]\\page.tsx"
+    },
+    {
+      "route": "/dashboard/visits",
+      "file": "apps\\web\\app\\dashboard\\visits\\page.tsx"
+    },
+    {
+      "route": "/india/[...slug]",
+      "file": "apps\\web\\app\\india\\[...slug]\\page.tsx"
+    },
+    {
+      "route": "/login",
+      "file": "apps\\web\\app\\login\\page.tsx"
+    },
+    {
+      "route": "/",
+      "file": "apps\\web\\app\\page.tsx"
+    },
+    {
+      "route": "/properties",
+      "file": "apps\\web\\app\\properties\\page.tsx"
+    },
+    {
+      "route": "/register",
+      "file": "apps\\web\\app\\register\\page.tsx"
+    }
+  ]
+}

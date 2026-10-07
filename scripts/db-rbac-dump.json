@@ -1,0 +1,1265 @@
+{
+  "roles": [
+    {
+      "id": 1,
+      "name": "Super admin",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Admin",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 3,
+      "name": "Legal team",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 4,
+      "name": "Verification team",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 5,
+      "name": "Cambliss marketing",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 6,
+      "name": "Property manager",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 7,
+      "name": "Support",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 8,
+      "name": "Insurance partner",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 9,
+      "name": "Property owner",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 10,
+      "name": "Tenant",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 11,
+      "name": "Agent",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    },
+    {
+      "id": 12,
+      "name": "Builder",
+      "created_at": "2026-08-25T11:40:35.000Z"
+    }
+  ],
+  "permissionsCount": 83,
+  "permissions": [
+    {
+      "id": 1,
+      "code": "user.read",
+      "resource": "user",
+      "action": "read",
+      "description": "View user records"
+    },
+    {
+      "id": 2,
+      "code": "user.manage",
+      "resource": "user",
+      "action": "manage",
+      "description": "Create, suspend, assign roles"
+    },
+    {
+      "id": 3,
+      "code": "kyc.read",
+      "resource": "kyc",
+      "action": "read",
+      "description": "View KYC submissions and verification status"
+    },
+    {
+      "id": 4,
+      "code": "kyc.review",
+      "resource": "kyc",
+      "action": "review",
+      "description": "Approve or reject KYC"
+    },
+    {
+      "id": 5,
+      "code": "property.create",
+      "resource": "property",
+      "action": "create",
+      "description": "Create listings"
+    },
+    {
+      "id": 6,
+      "code": "property.update.own",
+      "resource": "property",
+      "action": "update.own",
+      "description": "Edit own listings"
+    },
+    {
+      "id": 7,
+      "code": "property.moderate",
+      "resource": "property",
+      "action": "moderate",
+      "description": "Approve, reject, unpublish"
+    },
+    {
+      "id": 8,
+      "code": "property.read.private",
+      "resource": "property",
+      "action": "read.private",
+      "description": "See private listing data"
+    },
+    {
+      "id": 9,
+      "code": "application.decide",
+      "resource": "application",
+      "action": "decide",
+      "description": "Accept or reject applications"
+    },
+    {
+      "id": 10,
+      "code": "legal.case.manage",
+      "resource": "legal",
+      "action": "manage",
+      "description": "Work legal cases"
+    },
+    {
+      "id": 11,
+      "code": "agreement.draft",
+      "resource": "agreement",
+      "action": "draft",
+      "description": "Create and edit drafts"
+    },
+    {
+      "id": 12,
+      "code": "agreement.approve",
+      "resource": "agreement",
+      "action": "approve",
+      "description": "Legal approval of an agreement"
+    },
+    {
+      "id": 13,
+      "code": "agreement.sign",
+      "resource": "agreement",
+      "action": "sign",
+      "description": "Sign as a party"
+    },
+    {
+      "id": 14,
+      "code": "payment.read",
+      "resource": "payment",
+      "action": "read",
+      "description": "View payments"
+    },
+    {
+      "id": 15,
+      "code": "payment.manage",
+      "resource": "payment",
+      "action": "manage",
+      "description": "Record, refund, reconcile"
+    },
+    {
+      "id": 16,
+      "code": "commission.manage",
+      "resource": "commission",
+      "action": "manage",
+      "description": "Rules, cycles, waivers"
+    },
+    {
+      "id": 17,
+      "code": "marketing.package.manage",
+      "resource": "marketing",
+      "action": "manage",
+      "description": "Create and price packages"
+    },
+    {
+      "id": 18,
+      "code": "campaign.manage",
+      "resource": "campaign",
+      "action": "manage",
+      "description": "Run campaigns"
+    },
+    {
+      "id": 19,
+      "code": "inspection.create",
+      "resource": "inspection",
+      "action": "create",
+      "description": "Create condition reports"
+    },
+    {
+      "id": 20,
+      "code": "inspection.acknowledge",
+      "resource": "inspection",
+      "action": "acknowledge",
+      "description": "Acknowledge a report"
+    },
+    {
+      "id": 21,
+      "code": "maintenance.manage",
+      "resource": "maintenance",
+      "action": "manage",
+      "description": "Assign and close requests"
+    },
+    {
+      "id": 22,
+      "code": "insurance.manage",
+      "resource": "insurance",
+      "action": "manage",
+      "description": "Products, quotes, policies"
+    },
+    {
+      "id": 23,
+      "code": "dispute.manage",
+      "resource": "dispute",
+      "action": "manage",
+      "description": "Work disputes"
+    },
+    {
+      "id": 24,
+      "code": "support.manage",
+      "resource": "support",
+      "action": "manage",
+      "description": "Work tickets"
+    },
+    {
+      "id": 25,
+      "code": "document.read.any",
+      "resource": "document",
+      "action": "read.any",
+      "description": "Read any vault document"
+    },
+    {
+      "id": 26,
+      "code": "settings.manage",
+      "resource": "settings",
+      "action": "manage",
+      "description": "Platform configuration"
+    },
+    {
+      "id": 27,
+      "code": "audit.read",
+      "resource": "audit",
+      "action": "read",
+      "description": "Read audit logs"
+    },
+    {
+      "id": 28,
+      "code": "analytics.read",
+      "resource": "analytics",
+      "action": "read",
+      "description": "Platform analytics"
+    },
+    {
+      "id": 29,
+      "code": "commercial.read",
+      "resource": "commercial",
+      "action": "read",
+      "description": "View commercial obligations, rules and revenue reports"
+    },
+    {
+      "id": 30,
+      "code": "commercial.manage",
+      "resource": "commercial",
+      "action": "manage",
+      "description": "Approve, waive, adjust and manage commercial obligations"
+    },
+    {
+      "id": 31,
+      "code": "commercial.rules.manage",
+      "resource": "commercial",
+      "action": "rules.manage",
+      "description": "Create, update and configure commercial pricing rules"
+    },
+    {
+      "id": 32,
+      "code": "marketplace.read",
+      "resource": "marketplace",
+      "action": "read",
+      "description": "View marketplace overview, listings, promotions and leads"
+    },
+    {
+      "id": 33,
+      "code": "marketplace.manage",
+      "resource": "marketplace",
+      "action": "manage",
+      "description": "Manage marketplace listings, promotions, packages and overrides"
+    },
+    {
+      "id": 34,
+      "code": "listing.moderate",
+      "resource": "listing",
+      "action": "moderate",
+      "description": "Review, approve, reject and suspend listings"
+    },
+    {
+      "id": 35,
+      "code": "package.manage",
+      "resource": "package",
+      "action": "manage",
+      "description": "Create and configure marketplace monetization packages"
+    },
+    {
+      "id": 40,
+      "code": "lead.read",
+      "resource": "lead",
+      "action": "read",
+      "description": "View incoming leads and customer enquiries within permitted scope"
+    },
+    {
+      "id": 41,
+      "code": "lead.manage",
+      "resource": "lead",
+      "action": "manage",
+      "description": "Acknowledge, contact, qualify, follow up, and convert leads"
+    },
+    {
+      "id": 42,
+      "code": "lead.assign",
+      "resource": "lead",
+      "action": "assign",
+      "description": "Odibrick Management lead assignment and governance"
+    },
+    {
+      "id": 44,
+      "code": "personalization.read",
+      "resource": "",
+      "action": "",
+      "description": "View customer preferences, recommendations, and saved items"
+    },
+    {
+      "id": 45,
+      "code": "personalization.manage",
+      "resource": "",
+      "action": "",
+      "description": "Create, update, and delete preferences, saved searches, and saved properties"
+    },
+    {
+      "id": 46,
+      "code": "provider.insights",
+      "resource": "",
+      "action": "",
+      "description": "Access provider listing performance, action centre, and aggregate market demand insights"
+    },
+    {
+      "id": 49,
+      "code": "visit.read",
+      "resource": "visit",
+      "action": "read",
+      "description": "View property visits and scheduling calendar within permitted scope"
+    },
+    {
+      "id": 50,
+      "code": "visit.manage",
+      "resource": "visit",
+      "action": "manage",
+      "description": "Request, propose, confirm, reschedule, cancel, complete, and record visit outcomes"
+    },
+    {
+      "id": 51,
+      "code": "visit.assign",
+      "resource": "visit",
+      "action": "assign",
+      "description": "Odibrick Management visit assignment, reassignment, conflict override and governance"
+    },
+    {
+      "id": 52,
+      "code": "conversation.read",
+      "resource": "conversation",
+      "action": "read",
+      "description": "View authorized business conversations and message history"
+    },
+    {
+      "id": 53,
+      "code": "conversation.send",
+      "resource": "conversation",
+      "action": "send",
+      "description": "Send messages within authorized business conversations"
+    },
+    {
+      "id": 54,
+      "code": "conversation.manage",
+      "resource": "conversation",
+      "action": "manage",
+      "description": "Management conversation supervision, assignment, escalation, resolve, reopen, and close"
+    },
+    {
+      "id": 55,
+      "code": "conversation.internal_note",
+      "resource": "conversation",
+      "action": "internal_note",
+      "description": "Post and view internal management-only operational notes"
+    },
+    {
+      "id": 56,
+      "code": "conversation.assign",
+      "resource": "conversation",
+      "action": "assign",
+      "description": "Assign and reassign internal handlers to conversations"
+    },
+    {
+      "id": 57,
+      "code": "conversation.escalate",
+      "resource": "conversation",
+      "action": "escalate",
+      "description": "Escalate conversations to management for priority handling"
+    },
+    {
+      "id": 58,
+      "code": "document.read",
+      "resource": "document",
+      "action": "read",
+      "description": "View authorized documents"
+    },
+    {
+      "id": 59,
+      "code": "document.upload",
+      "resource": "document",
+      "action": "upload",
+      "description": "Upload documents into vault"
+    },
+    {
+      "id": 60,
+      "code": "document.manage",
+      "resource": "document",
+      "action": "manage",
+      "description": "Manage, replace, or archive documents"
+    },
+    {
+      "id": 61,
+      "code": "document.verify",
+      "resource": "document",
+      "action": "verify",
+      "description": "Verify or reject documents"
+    },
+    {
+      "id": 62,
+      "code": "document.assign",
+      "resource": "document",
+      "action": "assign",
+      "description": "Assign verifiers to documents"
+    },
+    {
+      "id": 63,
+      "code": "document.internal_note",
+      "resource": "document",
+      "action": "internal_note",
+      "description": "Record internal verification notes on documents"
+    },
+    {
+      "id": 64,
+      "code": "kyc.manage",
+      "resource": "kyc",
+      "action": "manage",
+      "description": "Manage KYC workflows, request documents, suspend or reopen"
+    },
+    {
+      "id": 65,
+      "code": "kyc.verify",
+      "resource": "kyc",
+      "action": "verify",
+      "description": "Verify or reject user KYC records"
+    },
+    {
+      "id": 66,
+      "code": "compliance.read",
+      "resource": "compliance",
+      "action": "read",
+      "description": "View platform compliance dashboard and audit metrics"
+    },
+    {
+      "id": 67,
+      "code": "compliance.manage",
+      "resource": "compliance",
+      "action": "manage",
+      "description": "Manage platform compliance, resolve exceptions, and execute overrides"
+    },
+    {
+      "id": 69,
+      "code": "automation.read",
+      "resource": "automation",
+      "action": "read",
+      "description": "View automation activity, event stream, and execution logs"
+    },
+    {
+      "id": 70,
+      "code": "automation.manage",
+      "resource": "automation",
+      "action": "manage",
+      "description": "Manage workflow rules, trigger retries, and acknowledge failures"
+    },
+    {
+      "id": 71,
+      "code": "automation.trigger",
+      "resource": "automation",
+      "action": "trigger",
+      "description": "Trigger scheduled workflow and SLA engine runs"
+    },
+    {
+      "id": 72,
+      "code": "automation.override",
+      "resource": "automation",
+      "action": "override",
+      "description": "Execute administrative workflow overrides and rule toggles"
+    },
+    {
+      "id": 73,
+      "code": "operations.read",
+      "resource": "operations",
+      "action": "read",
+      "description": "View Management operations control tower, work queue, and tasks"
+    },
+    {
+      "id": 74,
+      "code": "operations.manage",
+      "resource": "operations",
+      "action": "manage",
+      "description": "Create, update, prioritize, and manage operational tasks"
+    },
+    {
+      "id": 75,
+      "code": "operations.assign",
+      "resource": "operations",
+      "action": "assign",
+      "description": "Assign and reassign operational tasks to staff and teams"
+    },
+    {
+      "id": 76,
+      "code": "operations.resolve",
+      "resource": "operations",
+      "action": "resolve",
+      "description": "Resolve, close, or reopen operational tasks with governance notes"
+    },
+    {
+      "id": 77,
+      "code": "operations.override",
+      "resource": "operations",
+      "action": "override",
+      "description": "Override task priority, SLA deadlines, and status transitions"
+    },
+    {
+      "id": 78,
+      "code": "analytics.manage",
+      "resource": "analytics",
+      "action": "manage",
+      "description": "Configure analytics presets, benchmarks, and management dashboards"
+    },
+    {
+      "id": 79,
+      "code": "reports.read",
+      "resource": "reports",
+      "action": "read",
+      "description": "View tabular business intelligence reports and operational breakdowns"
+    },
+    {
+      "id": 80,
+      "code": "reports.export",
+      "resource": "reports",
+      "action": "export",
+      "description": "Export governed business intelligence reports as CSV"
+    },
+    {
+      "id": 82,
+      "code": "risk.read",
+      "resource": "risk",
+      "action": "read",
+      "description": "View platform risk cases, trust signals, and security telemetry"
+    },
+    {
+      "id": 83,
+      "code": "risk.manage",
+      "resource": "risk",
+      "action": "manage",
+      "description": "Create, triage, update, and manage fraud and risk cases"
+    },
+    {
+      "id": 84,
+      "code": "risk.investigate",
+      "resource": "risk",
+      "action": "investigate",
+      "description": "Investigate suspicious entities, request evidence, and review signals"
+    },
+    {
+      "id": 85,
+      "code": "risk.resolve",
+      "resource": "risk",
+      "action": "resolve",
+      "description": "Resolve, close, or mark risk cases as false positives"
+    },
+    {
+      "id": 86,
+      "code": "security.read",
+      "resource": "security",
+      "action": "read",
+      "description": "View security events, authentication audit logs, and access attempts"
+    },
+    {
+      "id": 87,
+      "code": "security.manage",
+      "resource": "security",
+      "action": "manage",
+      "description": "Manage security policies, IP throttles, and access overrides"
+    },
+    {
+      "id": 88,
+      "code": "integration.read",
+      "resource": "integration",
+      "action": "read",
+      "description": "View external integrations, provider adapters, and connectivity health"
+    },
+    {
+      "id": 89,
+      "code": "integration.manage",
+      "resource": "integration",
+      "action": "manage",
+      "description": "Configure, enable, disable, and manage external provider adapters"
+    },
+    {
+      "id": 90,
+      "code": "integration.test",
+      "resource": "integration",
+      "action": "test",
+      "description": "Execute connection tests and diagnostics on external integrations"
+    },
+    {
+      "id": 91,
+      "code": "webhook.read",
+      "resource": "webhook",
+      "action": "read",
+      "description": "View inbound provider webhooks, callback history, and payload logs"
+    },
+    {
+      "id": 92,
+      "code": "webhook.manage",
+      "resource": "webhook",
+      "action": "manage",
+      "description": "Retry failed webhooks and manage webhook replay controls"
+    }
+  ],
+  "rolePermissions": {
+    "Super admin": [
+      "agreement.approve",
+      "agreement.draft",
+      "agreement.sign",
+      "analytics.manage",
+      "analytics.read",
+      "application.decide",
+      "audit.read",
+      "automation.manage",
+      "automation.override",
+      "automation.read",
+      "automation.trigger",
+      "campaign.manage",
+      "commercial.manage",
+      "commercial.read",
+      "commercial.rules.manage",
+      "commission.manage",
+      "compliance.manage",
+      "compliance.read",
+      "conversation.assign",
+      "conversation.escalate",
+      "conversation.internal_note",
+      "conversation.manage",
+      "conversation.read",
+      "conversation.send",
+      "dispute.manage",
+      "document.assign",
+      "document.internal_note",
+      "document.manage",
+      "document.read",
+      "document.read.any",
+      "document.upload",
+      "document.verify",
+      "inspection.acknowledge",
+      "inspection.create",
+      "insurance.manage",
+      "integration.manage",
+      "integration.read",
+      "integration.test",
+      "kyc.manage",
+      "kyc.read",
+      "kyc.review",
+      "kyc.verify",
+      "lead.assign",
+      "lead.manage",
+      "lead.read",
+      "legal.case.manage",
+      "listing.moderate",
+      "maintenance.manage",
+      "marketing.package.manage",
+      "marketplace.manage",
+      "marketplace.read",
+      "operations.assign",
+      "operations.manage",
+      "operations.override",
+      "operations.read",
+      "operations.resolve",
+      "package.manage",
+      "payment.manage",
+      "payment.read",
+      "personalization.manage",
+      "personalization.read",
+      "property.create",
+      "property.moderate",
+      "property.read.private",
+      "property.update.own",
+      "provider.insights",
+      "reports.export",
+      "reports.read",
+      "risk.investigate",
+      "risk.manage",
+      "risk.read",
+      "risk.resolve",
+      "security.manage",
+      "security.read",
+      "settings.manage",
+      "support.manage",
+      "user.manage",
+      "user.read",
+      "visit.assign",
+      "visit.manage",
+      "visit.read",
+      "webhook.manage",
+      "webhook.read"
+    ],
+    "Admin": [
+      "analytics.manage",
+      "analytics.read",
+      "audit.read",
+      "automation.manage",
+      "automation.override",
+      "automation.read",
+      "automation.trigger",
+      "campaign.manage",
+      "commercial.manage",
+      "commercial.read",
+      "commercial.rules.manage",
+      "commission.manage",
+      "compliance.manage",
+      "compliance.read",
+      "conversation.assign",
+      "conversation.escalate",
+      "conversation.internal_note",
+      "conversation.manage",
+      "conversation.read",
+      "conversation.send",
+      "dispute.manage",
+      "document.assign",
+      "document.internal_note",
+      "document.manage",
+      "document.read",
+      "document.upload",
+      "document.verify",
+      "insurance.manage",
+      "integration.manage",
+      "integration.read",
+      "integration.test",
+      "kyc.manage",
+      "kyc.read",
+      "kyc.review",
+      "kyc.verify",
+      "lead.assign",
+      "lead.manage",
+      "lead.read",
+      "listing.moderate",
+      "maintenance.manage",
+      "marketing.package.manage",
+      "marketplace.manage",
+      "marketplace.read",
+      "operations.assign",
+      "operations.manage",
+      "operations.override",
+      "operations.read",
+      "operations.resolve",
+      "package.manage",
+      "payment.manage",
+      "payment.read",
+      "personalization.manage",
+      "personalization.read",
+      "property.moderate",
+      "property.read.private",
+      "provider.insights",
+      "reports.export",
+      "reports.read",
+      "risk.investigate",
+      "risk.manage",
+      "risk.read",
+      "risk.resolve",
+      "security.manage",
+      "security.read",
+      "settings.manage",
+      "support.manage",
+      "user.manage",
+      "user.read",
+      "visit.assign",
+      "visit.manage",
+      "visit.read",
+      "webhook.manage",
+      "webhook.read"
+    ],
+    "Legal team": [
+      "agreement.approve",
+      "agreement.draft",
+      "dispute.manage",
+      "document.read.any",
+      "kyc.read",
+      "legal.case.manage",
+      "property.read.private"
+    ],
+    "Verification team": [
+      "kyc.read",
+      "kyc.review",
+      "property.moderate",
+      "property.read.private"
+    ],
+    "Cambliss marketing": [
+      "analytics.read",
+      "campaign.manage",
+      "marketing.package.manage"
+    ],
+    "Property manager": [
+      "inspection.acknowledge",
+      "inspection.create",
+      "maintenance.manage",
+      "property.read.private"
+    ],
+    "Support": [
+      "payment.read",
+      "support.manage",
+      "user.read"
+    ],
+    "Insurance partner": [
+      "insurance.manage"
+    ],
+    "Property owner": [
+      "agreement.sign",
+      "application.decide",
+      "conversation.read",
+      "conversation.send",
+      "document.read",
+      "document.upload",
+      "inspection.acknowledge",
+      "payment.read",
+      "property.create",
+      "property.update.own"
+    ],
+    "Tenant": [
+      "agreement.sign",
+      "conversation.read",
+      "conversation.send",
+      "document.read",
+      "document.upload",
+      "inspection.acknowledge",
+      "inspection.create",
+      "payment.read"
+    ],
+    "Agent": [
+      "agreement.sign",
+      "application.decide",
+      "conversation.read",
+      "conversation.send",
+      "document.read",
+      "document.upload",
+      "inspection.acknowledge",
+      "payment.read",
+      "property.create",
+      "property.update.own"
+    ],
+    "Builder": [
+      "agreement.sign",
+      "application.decide",
+      "inspection.acknowledge",
+      "payment.read",
+      "property.create",
+      "property.update.own"
+    ]
+  },
+  "usersCount": 47,
+  "users": [
+    {
+      "id": 1,
+      "email": "super_admin@demo.odibrick.test",
+      "full_name": "Odibrick Admin",
+      "status": "ACTIVE",
+      "phone": "9883601039",
+      "assigned_roles": "Super admin"
+    },
+    {
+      "id": 2,
+      "email": "admin@demo.odibrick.test",
+      "full_name": "Operations Desk",
+      "status": "ACTIVE",
+      "phone": "9238353841",
+      "assigned_roles": "Admin"
+    },
+    {
+      "id": 3,
+      "email": "legal_team@demo.odibrick.test",
+      "full_name": "Adv. Shalini Menon",
+      "status": "ACTIVE",
+      "phone": "9857496671",
+      "assigned_roles": "Legal team"
+    },
+    {
+      "id": 4,
+      "email": "kyc_team@demo.odibrick.test",
+      "full_name": "Verification Desk",
+      "status": "ACTIVE",
+      "phone": "9348895568",
+      "assigned_roles": "Verification team"
+    },
+    {
+      "id": 5,
+      "email": "marketing_team@demo.odibrick.test",
+      "full_name": "Cambliss Campaigns",
+      "status": "ACTIVE",
+      "phone": "9201207705",
+      "assigned_roles": "Cambliss marketing"
+    },
+    {
+      "id": 6,
+      "email": "support_team@demo.odibrick.test",
+      "full_name": "Support Desk",
+      "status": "ACTIVE",
+      "phone": "9908675115",
+      "assigned_roles": "Support"
+    },
+    {
+      "id": 7,
+      "email": "property_manager@demo.odibrick.test",
+      "full_name": "Field Operations",
+      "status": "ACTIVE",
+      "phone": "9708839528",
+      "assigned_roles": "Property manager"
+    },
+    {
+      "id": 8,
+      "email": "owner1@demo.odibrick.test",
+      "full_name": "Tara Verma",
+      "status": "ACTIVE",
+      "phone": "9282334645",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 9,
+      "email": "owner2@demo.odibrick.test",
+      "full_name": "Aarav Rao",
+      "status": "ACTIVE",
+      "phone": "9868953522",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 10,
+      "email": "owner3@demo.odibrick.test",
+      "full_name": "Ishita Patel",
+      "status": "ACTIVE",
+      "phone": "9210674167",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 11,
+      "email": "owner4@demo.odibrick.test",
+      "full_name": "Diya Kulkarni",
+      "status": "ACTIVE",
+      "phone": "9736381262",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 12,
+      "email": "owner5@demo.odibrick.test",
+      "full_name": "Priya Reddy",
+      "status": "ACTIVE",
+      "phone": "9511954897",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 13,
+      "email": "owner6@demo.odibrick.test",
+      "full_name": "Lakshmi Kulkarni",
+      "status": "ACTIVE",
+      "phone": "9442217190",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 14,
+      "email": "owner7@demo.odibrick.test",
+      "full_name": "Sneha Nair",
+      "status": "ACTIVE",
+      "phone": "9593238095",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 15,
+      "email": "owner8@demo.odibrick.test",
+      "full_name": "Ishita Reddy",
+      "status": "ACTIVE",
+      "phone": "9801254507",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 16,
+      "email": "owner9@demo.odibrick.test",
+      "full_name": "Ananya Sharma",
+      "status": "ACTIVE",
+      "phone": "9342734770",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 17,
+      "email": "owner10@demo.odibrick.test",
+      "full_name": "Aditya Kulkarni",
+      "status": "ACTIVE",
+      "phone": "9551863483",
+      "assigned_roles": "Property owner"
+    },
+    {
+      "id": 18,
+      "email": "tenant1@demo.odibrick.test",
+      "full_name": "Naveen Gupta",
+      "status": "ACTIVE",
+      "phone": "9350223611",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 19,
+      "email": "tenant2@demo.odibrick.test",
+      "full_name": "Aarav Menon",
+      "status": "ACTIVE",
+      "phone": "9768041650",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 20,
+      "email": "tenant3@demo.odibrick.test",
+      "full_name": "Nisha Patel",
+      "status": "ACTIVE",
+      "phone": "9172241663",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 21,
+      "email": "tenant4@demo.odibrick.test",
+      "full_name": "Meera Reddy",
+      "status": "ACTIVE",
+      "phone": "9445833122",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 22,
+      "email": "tenant5@demo.odibrick.test",
+      "full_name": "Aditya Rao",
+      "status": "ACTIVE",
+      "phone": "9599660206",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 23,
+      "email": "tenant6@demo.odibrick.test",
+      "full_name": "Aditya Patel",
+      "status": "ACTIVE",
+      "phone": "9372484597",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 24,
+      "email": "tenant7@demo.odibrick.test",
+      "full_name": "Tara Sharma",
+      "status": "ACTIVE",
+      "phone": "9575333386",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 25,
+      "email": "tenant8@demo.odibrick.test",
+      "full_name": "Aditya Verma",
+      "status": "ACTIVE",
+      "phone": "9643118236",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 26,
+      "email": "tenant9@demo.odibrick.test",
+      "full_name": "Tara Sharma",
+      "status": "ACTIVE",
+      "phone": "9478539264",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 27,
+      "email": "tenant10@demo.odibrick.test",
+      "full_name": "Sameer Nair",
+      "status": "ACTIVE",
+      "phone": "9823253957",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 28,
+      "email": "tenant11@demo.odibrick.test",
+      "full_name": "Ananya Patel",
+      "status": "ACTIVE",
+      "phone": "9411842891",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 29,
+      "email": "tenant12@demo.odibrick.test",
+      "full_name": "Karthik Gupta",
+      "status": "ACTIVE",
+      "phone": "9360214655",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 30,
+      "email": "tenant13@demo.odibrick.test",
+      "full_name": "Priya Verma",
+      "status": "ACTIVE",
+      "phone": "9853034538",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 31,
+      "email": "tenant14@demo.odibrick.test",
+      "full_name": "Sneha Menon",
+      "status": "ACTIVE",
+      "phone": "9999426192",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 32,
+      "email": "tenant15@demo.odibrick.test",
+      "full_name": "Priya Patel",
+      "status": "ACTIVE",
+      "phone": "9188774762",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 33,
+      "email": "tenant16@demo.odibrick.test",
+      "full_name": "Arjun Rao",
+      "status": "ACTIVE",
+      "phone": "9779376735",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 34,
+      "email": "tenant17@demo.odibrick.test",
+      "full_name": "Tara Rao",
+      "status": "ACTIVE",
+      "phone": "9299312312",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 35,
+      "email": "tenant18@demo.odibrick.test",
+      "full_name": "Tara Sharma",
+      "status": "ACTIVE",
+      "phone": "9964284367",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 36,
+      "email": "tenant19@demo.odibrick.test",
+      "full_name": "Meera Nair",
+      "status": "ACTIVE",
+      "phone": "9428696791",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 37,
+      "email": "tenant20@demo.odibrick.test",
+      "full_name": "Karthik Menon",
+      "status": "ACTIVE",
+      "phone": "9169988831",
+      "assigned_roles": "Tenant"
+    },
+    {
+      "id": 38,
+      "email": "agent1@demo.odibrick.test",
+      "full_name": "Naveen Nair",
+      "status": "ACTIVE",
+      "phone": "9713392082",
+      "assigned_roles": "Agent"
+    },
+    {
+      "id": 39,
+      "email": "agent2@demo.odibrick.test",
+      "full_name": "Tara Nair",
+      "status": "ACTIVE",
+      "phone": "9509546056",
+      "assigned_roles": "Agent"
+    },
+    {
+      "id": 40,
+      "email": "agent3@demo.odibrick.test",
+      "full_name": "Arjun Menon",
+      "status": "ACTIVE",
+      "phone": "9647349576",
+      "assigned_roles": "Agent"
+    },
+    {
+      "id": 41,
+      "email": "agent4@demo.odibrick.test",
+      "full_name": "Aarav Rao",
+      "status": "ACTIVE",
+      "phone": "9403291100",
+      "assigned_roles": "Agent"
+    },
+    {
+      "id": 42,
+      "email": "agent5@demo.odibrick.test",
+      "full_name": "Priya Gupta",
+      "status": "ACTIVE",
+      "phone": "9147733638",
+      "assigned_roles": "Agent"
+    },
+    {
+      "id": 43,
+      "email": "builder1@demo.odibrick.test",
+      "full_name": "Meridian Developers Sales",
+      "status": "ACTIVE",
+      "phone": "9669999300",
+      "assigned_roles": "Builder"
+    },
+    {
+      "id": 44,
+      "email": "builder2@demo.odibrick.test",
+      "full_name": "Aurora Developers Sales",
+      "status": "ACTIVE",
+      "phone": "9135556783",
+      "assigned_roles": "Builder"
+    },
+    {
+      "id": 45,
+      "email": "builder3@demo.odibrick.test",
+      "full_name": "Meridian Developers Sales",
+      "status": "ACTIVE",
+      "phone": "9926994355",
+      "assigned_roles": "Builder"
+    },
+    {
+      "id": 46,
+      "email": "builder@demo.odibrick.test",
+      "full_name": "Demo Builder",
+      "status": "ACTIVE",
+      "phone": null,
+      "assigned_roles": "Builder"
+    },
+    {
+      "id": 47,
+      "email": "insurance_partner@demo.odibrick.test",
+      "full_name": "Bajaj Allianz Desk",
+      "status": "ACTIVE",
+      "phone": "9999988888",
+      "assigned_roles": "Insurance partner"
+    }
+  ]
+}
