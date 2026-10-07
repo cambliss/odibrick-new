@@ -27,7 +27,15 @@ async function main() {
     }
   }
 
-  const VALID_IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']);
+  const VALID_IMAGE_MIMES = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/avif',
+    'image/heic',
+    'image/gif',
+    'image/svg+xml',
+  ]);
 
   // 1. Test Public Listing Cards Image URLs
   console.log('--- 1. Testing Public Property Search & Card Images ---');

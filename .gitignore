@@ -9,8 +9,11 @@ build/
 .env.*.local
 !.env.example
 
-storage/
-uploads/
+/storage/
+/uploads/
+apps/api/storage/
+!apps/api/src/modules/storage/**
+!apps/api/src/modules/uploads/**
 *.log
 logs/
 npm-debug.log*

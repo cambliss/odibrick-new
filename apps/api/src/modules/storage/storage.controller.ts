@@ -14,7 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
 import * as path from 'path';
-import { StorageService, DocumentCategory } from './storage.service';
+import { StorageService, DocumentCategory, detectFileSignature } from './storage.service';
 import { CurrentUser, Public, RequirePermissions } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
 import {
@@ -259,20 +259,23 @@ export class StorageController {
       const ext = path.extname(normalizedKey).toLowerCase();
       let mimeType = 'application/octet-stream';
 
-      if (buffer.length >= 4 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-        mimeType = 'image/jpeg';
-      } else if (buffer.length >= 8 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
-        mimeType = 'image/png';
-      } else if (buffer.length >= 4 && buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
-        mimeType = 'image/webp';
+      const detected = detectFileSignature(buffer);
+      if (detected) {
+        mimeType = detected.mime;
       } else if (buffer.slice(0, 100).toString().includes('<svg')) {
         mimeType = 'image/svg+xml';
-      } else if (['.jpg', '.jpeg'].includes(ext)) {
+      } else if (['.jpg', '.jpeg', '.jfif', '.jfi'].includes(ext)) {
         mimeType = 'image/jpeg';
       } else if (ext === '.png') {
         mimeType = 'image/png';
       } else if (ext === '.webp') {
         mimeType = 'image/webp';
+      } else if (ext === '.avif') {
+        mimeType = 'image/avif';
+      } else if (['.heic', '.heif'].includes(ext)) {
+        mimeType = 'image/heic';
+      } else if (ext === '.gif') {
+        mimeType = 'image/gif';
       } else if (ext === '.svg') {
         mimeType = 'image/svg+xml';
       } else if (ext === '.pdf') {
