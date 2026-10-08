@@ -41,3 +41,15 @@ export const titleCase = (value?: string | null): string =>
 /** Media keys are private storage paths, not URLs. Demo keys have no file behind them. */
 export const mediaUrl = (key?: string | null): string | null =>
   key ? (key.startsWith('demo/') ? null : `/api/media/${encodeURIComponent(key)}`) : null;
+
+/** Builds the canonical public listing URL from a property slug or object. */
+export const propertyHref = (
+  propertyOrSlug?: string | { slug?: string | null; publicId?: string | null } | null,
+): string | null => {
+  if (!propertyOrSlug) return null;
+  const slug = typeof propertyOrSlug === 'string' ? propertyOrSlug : propertyOrSlug.slug;
+  if (!slug) return null;
+  const trimmed = slug.trim().replace(/^\/+/, '');
+  if (!trimmed) return null;
+  return trimmed.startsWith('india/') ? `/${trimmed}` : `/india/${trimmed}`;
+};

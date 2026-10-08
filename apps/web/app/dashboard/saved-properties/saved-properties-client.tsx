@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Badge, Button, Card, CardHeader, EmptyState } from '@/components/ui';
-import { inr, shortDate } from '@/lib/format';
+import { inr, propertyHref, shortDate } from '@/lib/format';
 
 export function SavedPropertiesClient({ initialData }: { initialData: any }) {
   const [items, setItems] = useState<any[]>(initialData?.data || []);
@@ -113,11 +113,17 @@ export function SavedPropertiesClient({ initialData }: { initialData: any }) {
               </div>
 
               <div className="p-4 border-t border-line bg-slate-50 flex items-center justify-between gap-2">
-                <Link href={`/properties/${property.slug || property.id}`} className="flex-1">
-                  <Button variant="secondary" size="sm" className="w-full text-xs">
-                    View Details
+                {propertyHref(property) ? (
+                  <Link href={propertyHref(property)!} className="flex-1">
+                    <Button variant="secondary" size="sm" className="w-full text-xs">
+                      View Details
+                    </Button>
+                  </Link>
+                ) : (
+                  <Button variant="secondary" size="sm" className="flex-1 text-xs" disabled>
+                    Unavailable
                   </Button>
-                </Link>
+                )}
                 <Button
                   variant="danger"
                   size="sm"
