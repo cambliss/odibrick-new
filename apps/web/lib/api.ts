@@ -66,12 +66,12 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   return parse<T>(res);
 }
 
-/** Server fetch that returns null instead of throwing when the visitor is signed out. */
+/** Server fetch that returns null instead of throwing when the resource is unavailable or visitor is signed out. */
 export async function serverApiOrNull<T>(path: string, options: Options = {}): Promise<T | null> {
   try {
     return await serverApi<T>(path, options);
   } catch (error) {
-    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) return null;
-    throw error;
+    if (error instanceof ApiError) return null;
+    return null;
   }
 }
