@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Badge, Button, Card, ErrorNote, StatusChip } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -178,15 +178,72 @@ const SECTIONS = [
   { id: 'photos', label: '8. Photographs' },
 ] as const;
 
+const SECTION_ALIASES: Record<string, string> = {
+  basic: 'basic',
+  details: 'basic',
+  location: 'location',
+  address: 'location',
+  config: 'config',
+  configuration: 'config',
+  area: 'config',
+  pricing: 'pricing',
+  price: 'pricing',
+  terms: 'pricing',
+  amenities: 'amenities',
+  amenity: 'amenities',
+  availability: 'availability',
+  rules: 'availability',
+  description: 'description',
+  photos: 'photos',
+  photographs: 'photos',
+  images: 'photos',
+  media: 'photos',
+};
+
+function normalizeSection(sec: string | null | undefined): string {
+  if (!sec) return 'basic';
+  const clean = sec.trim().toLowerCase();
+  return SECTION_ALIASES[clean] || 'basic';
+}
+
 export function PropertyEditForm({ initialData }: { initialData: PropertyEditData }) {
   const router = useRouter();
-  const [activeSection, setActiveSection] = useState<string>('basic');
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
+  const [activeSection, setActiveSection] = useState<string>(() => {
+    return normalizeSection(searchParams?.get('section'));
+  });
+
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<PropertyImage[]>(initialData.images || []);
+  const [qualityScore, setQualityScore] = useState<number>(initialData.qualityScore ?? 0);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null);
+  const [settingCoverId, setSettingCoverId] = useState<number | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync state if URL query params change (e.g. Back/Forward navigation)
+  useEffect(() => {
+    const urlSec = normalizeSection(searchParams?.get('section'));
+    if (urlSec !== activeSection) {
+      setActiveSection(urlSec);
+    }
+  }, [searchParams]);
+
+  const handleSectionChange = (secId: string) => {
+    const normalized = normalizeSection(secId);
+    setActiveSection(normalized);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('section', normalized);
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState(null, '', newUrl);
+    }
+  };
 
   // Editable Form State
   const [formData, setFormData] = useState({
@@ -308,7 +365,7 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
       });
 
       setSaveStatus(`Saved successfully at ${new Date().toLocaleTimeString('en-IN')}`);
-      router.refresh();
+      await syncPropertyMedia();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save changes. Please review the inputs.');
     } finally {
@@ -316,12 +373,20 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
     }
   };
 
-  const refreshImages = async () => {
+  const syncPropertyMedia = async () => {
     try {
-      const refreshed = await api<PropertyImage[]>(`/properties/${initialData.id}/images`);
-      setImages(refreshed);
-    } catch {
-      // Keep existing
+      const [refreshed, updatedProp] = await Promise.all([
+        api<PropertyImage[]>(`/properties/${initialData.id}/images`),
+        api<PropertyEditData>(`/properties/mine/${initialData.id}`).catch(() => null),
+      ]);
+      if (Array.isArray(refreshed)) {
+        setImages(refreshed);
+      }
+      if (updatedProp && typeof updatedProp.qualityScore === 'number') {
+        setQualityScore(updatedProp.qualityScore);
+      }
+    } catch (err) {
+      console.error('Failed to sync property media:', err);
     }
   };
 
@@ -330,6 +395,7 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
     if (!rawFiles.length) return;
 
     setError(null);
+    setSaveStatus(null);
     const validFiles: File[] = [];
     const validationErrors: string[] = [];
 
@@ -356,6 +422,7 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
 
     setUploadingPhotos(true);
     try {
+      let uploadedCount = 0;
       for (const file of validFiles) {
         const form = new FormData();
         form.append('file', file);
@@ -365,10 +432,10 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
           method: 'POST',
           body: JSON.stringify({ storageKey: uploadRes.storageKey }),
         });
+        uploadedCount++;
       }
-      await refreshImages();
-      setSaveStatus('Photographs uploaded successfully.');
-      router.refresh();
+      await syncPropertyMedia();
+      setSaveStatus(`Successfully uploaded ${uploadedCount} photograph${uploadedCount > 1 ? 's' : ''}.`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Photo upload failed.');
     } finally {
@@ -378,25 +445,39 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
   };
 
   const handleSetCover = async (imageId: number) => {
+    setSettingCoverId(imageId);
+    setError(null);
+    setSaveStatus(null);
+    // Optimistic local update
+    setImages((curr) => curr.map((img) => ({ ...img, is_cover: img.id === imageId ? 1 : 0 })));
     try {
       await api(`/properties/${initialData.id}/images/${imageId}/cover`, { method: 'POST' });
-      setImages((curr) => curr.map((img) => ({ ...img, is_cover: img.id === imageId ? 1 : 0 })));
       setSaveStatus('Cover photograph updated.');
-      router.refresh();
+      await syncPropertyMedia();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not set cover photo.');
+      await syncPropertyMedia();
+    } finally {
+      setSettingCoverId(null);
     }
   };
 
   const handleDeletePhoto = async (imageId: number) => {
     if (!confirm('Are you sure you want to remove this photograph?')) return;
+    setDeletingPhotoId(imageId);
+    setError(null);
+    setSaveStatus(null);
+    // Optimistic local update
+    setImages((curr) => curr.filter((img) => img.id !== imageId));
     try {
       await api(`/properties/${initialData.id}/images/${imageId}`, { method: 'DELETE' });
-      await refreshImages();
       setSaveStatus('Photograph removed.');
-      router.refresh();
+      await syncPropertyMedia();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not remove photograph.');
+      await syncPropertyMedia();
+    } finally {
+      setDeletingPhotoId(null);
     }
   };
 
@@ -409,15 +490,20 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
     nextImages.splice(targetIndex, 0, moved);
     setImages(nextImages);
 
+    setMediaBusy(true);
+    setError(null);
     try {
       await api(`/properties/${initialData.id}/images/reorder`, {
         method: 'POST',
         body: JSON.stringify({ imageIds: nextImages.map((img) => img.id) }),
       });
-      router.refresh();
+      setSaveStatus('Photograph order updated.');
+      await syncPropertyMedia();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reorder photographs.');
-      await refreshImages();
+      await syncPropertyMedia();
+    } finally {
+      setMediaBusy(false);
     }
   };
 
@@ -431,7 +517,7 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
           </Link>
           <span aria-hidden> / </span>
           <Link href={`/dashboard/properties/${initialData.id}`} className="hover:text-ink">
-            {initialData.title}
+            {formData.title || initialData.title}
           </Link>
           <span aria-hidden> / </span>
           <span className="text-ink font-semibold">Edit Property</span>
@@ -489,7 +575,7 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
           <div className="flex items-center gap-6">
             <div className="text-right">
               <p className="font-mono text-[10px] uppercase tracking-wider text-muted">Completeness</p>
-              <p className="font-display text-2xl font-semibold tabular text-seal">{initialData.qualityScore}%</p>
+              <p className="font-display text-2xl font-semibold tabular text-seal">{qualityScore}%</p>
             </div>
             <div className="text-right">
               <p className="font-mono text-[10px] uppercase tracking-wider text-muted">Photos</p>
@@ -525,7 +611,7 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
               <button
                 key={sec.id}
                 type="button"
-                onClick={() => setActiveSection(sec.id)}
+                onClick={() => handleSectionChange(sec.id)}
                 className={`whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors ${
                   activeSection === sec.id
                     ? 'bg-seal text-white font-semibold shadow-sm'

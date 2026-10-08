@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { serverApi, ApiError } from '@/lib/api';
@@ -22,7 +23,11 @@ export default async function EditPropertyPage({ params }: { params: { id: strin
       notFound();
     }
 
-    return <PropertyEditForm initialData={property} />;
+    return (
+      <Suspense fallback={<div className="p-6 text-sm text-muted">Loading property editor...</div>}>
+        <PropertyEditForm initialData={property} />
+      </Suspense>
+    );
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 403)) {
       notFound();
