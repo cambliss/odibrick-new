@@ -244,6 +244,12 @@ export class StorageController {
     const decoded = decodeURIComponent(key);
     const normalizedKey = decoded.replace(/\\/g, '/').replace(/^\/+/, '');
 
+    // Path traversal protection
+    if (normalizedKey.includes('..')) {
+      res.status(400).json({ statusCode: 400, message: 'Invalid storage key path.' });
+      return;
+    }
+
     // Direct access to private vault, kyc or legal agreements is prohibited via public storage
     if (
       normalizedKey.startsWith('vault/') ||
@@ -283,6 +289,7 @@ export class StorageController {
       }
 
       res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Length', buffer.length);
       res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.send(buffer);

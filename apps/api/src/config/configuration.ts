@@ -40,6 +40,12 @@ export default () => ({
     driver: (process.env.STORAGE_DRIVER ?? 'LOCAL') as 'LOCAL' | 'S3',
     localRoot: process.env.STORAGE_LOCAL_ROOT ?? '/var/lib/odibrick/storage',
     signedUrlTtl: parseInt(process.env.SIGNED_URL_TTL ?? '300', 10),
+    s3Bucket: process.env.S3_BUCKET ?? '',
+    awsRegion: process.env.AWS_REGION ?? 'ap-south-1',
+    awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
+    awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
+    s3Endpoint: process.env.S3_ENDPOINT ?? '',
+    s3ForcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true' || process.env.S3_FORCE_PATH_STYLE === '1',
   },
   providers: {
     payment: process.env.PAYMENT_PROVIDER ?? 'manual',

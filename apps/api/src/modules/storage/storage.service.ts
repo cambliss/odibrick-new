@@ -11,6 +11,13 @@ import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import * as path from 'path';
 import { Request } from 'express';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -154,13 +161,14 @@ export interface StoredFile {
   mimeType: string;
 }
 
-interface StorageDriver {
-  put(key: string, data: Buffer): Promise<void>;
+export interface StorageDriver {
+  put(key: string, data: Buffer, mimeType?: string): Promise<void>;
   get(key: string): Promise<Buffer>;
   remove(key: string): Promise<void>;
+  exists(key: string): Promise<boolean>;
 }
 
-class LocalDriver implements StorageDriver {
+export class LocalDriver implements StorageDriver {
   private readonly roots: string[];
 
   constructor(root: string) {
@@ -187,7 +195,7 @@ class LocalDriver implements StorageDriver {
     return path.resolve(this.roots[0], sanitized);
   }
 
-  async put(key: string, data: Buffer) {
+  async put(key: string, data: Buffer, _mimeType?: string) {
     const sanitized = key.replace(/\.\./g, '').replace(/^[/\\]+/, '');
     const target = path.resolve(this.roots[0], sanitized);
     await fs.mkdir(path.dirname(target), { recursive: true });
@@ -223,6 +231,11 @@ class LocalDriver implements StorageDriver {
   async remove(key: string) {
     const target = this.full(key);
     await fs.rm(target, { force: true });
+  }
+
+  async exists(key: string): Promise<boolean> {
+    const target = this.full(key);
+    return fsSync.existsSync(target);
   }
 
   private generateFallbackSvg(key: string): string {
@@ -278,22 +291,121 @@ class LocalDriver implements StorageDriver {
   }
 }
 
+export interface S3DriverOptions {
+  bucket: string;
+  region?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+  endpoint?: string;
+  forcePathStyle?: boolean;
+}
 
-class S3Driver implements StorageDriver {
-  async put(): Promise<void> {
-    throw new BadRequestException(
-      'S3 storage is configured but the adapter is not enabled on this server.',
+export class S3Driver implements StorageDriver {
+  private readonly client: S3Client;
+  private readonly bucket: string;
+
+  constructor(options: S3DriverOptions) {
+    if (!options.bucket) {
+      throw new Error('S3 storage driver requires S3_BUCKET configuration.');
+    }
+    this.bucket = options.bucket;
+
+    const clientConfig: any = {
+      region: options.region || 'ap-south-1',
+    };
+
+    if (options.accessKeyId && options.secretAccessKey) {
+      clientConfig.credentials = {
+        accessKeyId: options.accessKeyId,
+        secretAccessKey: options.secretAccessKey,
+      };
+    }
+
+    if (options.endpoint) {
+      clientConfig.endpoint = options.endpoint;
+    }
+
+    if (options.forcePathStyle !== undefined) {
+      clientConfig.forcePathStyle = options.forcePathStyle;
+    }
+
+    this.client = new S3Client(clientConfig);
+  }
+
+  private sanitizeKey(key: string): string {
+    return key.replace(/\.\./g, '').replace(/^[/\\]+/, '').replace(/\\/g, '/');
+  }
+
+  async put(key: string, data: Buffer, mimeType?: string): Promise<void> {
+    const sanitized = this.sanitizeKey(key);
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: sanitized,
+        Body: data,
+        ContentType: mimeType || 'application/octet-stream',
+      }),
     );
   }
-  async get(): Promise<Buffer> {
-    throw new BadRequestException(
-      'S3 storage is configured but the adapter is not enabled on this server.',
+
+  async get(key: string): Promise<Buffer> {
+    const sanitized = this.sanitizeKey(key);
+    try {
+      const res = await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.bucket,
+          Key: sanitized,
+        }),
+      );
+
+      if (!res.Body) {
+        throw new NotFoundException('File not found in S3 storage.');
+      }
+
+      const byteArray = await (res.Body as any).transformToByteArray();
+      return Buffer.from(byteArray);
+    } catch (err: any) {
+      if (
+        err.name === 'NoSuchKey' ||
+        err.name === 'NotFound' ||
+        err.$metadata?.httpStatusCode === 404
+      ) {
+        throw new NotFoundException('File not found in S3 storage.');
+      }
+      throw err;
+    }
+  }
+
+  async remove(key: string): Promise<void> {
+    const sanitized = this.sanitizeKey(key);
+    await this.client.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: sanitized,
+      }),
     );
   }
-  async remove(): Promise<void> {
-    throw new BadRequestException(
-      'S3 storage is configured but the adapter is not enabled on this server.',
-    );
+
+  async exists(key: string): Promise<boolean> {
+    const sanitized = this.sanitizeKey(key);
+    try {
+      await this.client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucket,
+          Key: sanitized,
+        }),
+      );
+      return true;
+    } catch (err: any) {
+      if (
+        err.name === 'NoSuchKey' ||
+        err.name === 'NotFound' ||
+        err.$metadata?.httpStatusCode === 404
+      ) {
+        return false;
+      }
+      throw err;
+    }
   }
 }
 
@@ -309,11 +421,43 @@ export class StorageService {
     private readonly audit: AuditService,
     private readonly notify: NotificationsService,
   ) {
-    this.driverName = this.config.get('storage.driver') === 'S3' ? 'S3' : 'LOCAL';
-    this.driver =
-      this.driverName === 'S3'
-        ? new S3Driver()
-        : new LocalDriver(this.config.get('storage.localRoot')!);
+    this.driverName = this.config.get<string>('storage.driver') === 'S3' ? 'S3' : 'LOCAL';
+
+    if (this.driverName === 'S3') {
+      const bucket = this.config.get<string>('storage.s3Bucket');
+      const region = this.config.get<string>('storage.awsRegion') || 'ap-south-1';
+      const accessKeyId = this.config.get<string>('storage.awsAccessKeyId');
+      const secretAccessKey = this.config.get<string>('storage.awsSecretAccessKey');
+      const endpoint = this.config.get<string>('storage.s3Endpoint');
+      const forcePathStyle = this.config.get<boolean>('storage.s3ForcePathStyle');
+
+      if (!bucket) {
+        throw new Error(
+          'STORAGE_DRIVER is set to S3 but S3_BUCKET is not configured. Failing fast to prevent ephemeral storage data loss.',
+        );
+      }
+      if (!accessKeyId || !secretAccessKey) {
+        this.logger.warn(
+          'S3 credentials (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) not provided in configuration. Assuming ambient IAM role or credential provider chain.',
+        );
+      }
+
+      this.driver = new S3Driver({
+        bucket,
+        region,
+        accessKeyId: accessKeyId || undefined,
+        secretAccessKey: secretAccessKey || undefined,
+        endpoint: endpoint || undefined,
+        forcePathStyle,
+      });
+      this.logger.log(
+        `Storage initialized with S3Driver (Bucket: ${bucket}, Region: ${region}, Endpoint: ${endpoint || 'AWS Default'})`,
+      );
+    } else {
+      const localRoot = this.config.get<string>('storage.localRoot') || '/var/lib/odibrick/storage';
+      this.driver = new LocalDriver(localRoot);
+      this.logger.log(`Storage initialized with LocalDriver (Root: ${localRoot})`);
+    }
   }
 
   isStaff(user: AuthUser): boolean {
@@ -383,7 +527,7 @@ export class StorageService {
 
     const checksum = sha256(file.buffer);
     const key = `${folder}/${new Date().toISOString().slice(0, 7)}/${randomUUID()}${normalizedExt}`;
-    await this.driver.put(key, file.buffer);
+    await this.driver.put(key, file.buffer, detected.mime);
     return { storageKey: key, sizeBytes: file.buffer.length, checksum, mimeType: detected.mime };
   }
 
@@ -1025,6 +1169,18 @@ export class StorageService {
 
   async readRaw(key: string): Promise<Buffer> {
     return this.driver.get(key);
+  }
+
+  async exists(key: string): Promise<boolean> {
+    return this.driver.exists(key);
+  }
+
+  async remove(key: string): Promise<void> {
+    return this.driver.remove(key);
+  }
+
+  getDriverName(): 'LOCAL' | 'S3' {
+    return this.driverName;
   }
 
   private sign(payload: string): string {
