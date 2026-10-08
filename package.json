@@ -25,7 +25,7 @@
     "db:status": "node database/migrate.js --status",
     "db:seed": "node database/seed/seed.js",
     "db:seed:purge": "node database/seed/seed.js --purge",
-    "start:api": "node apps/api/dist/main.js",
+    "start:api": "node database/migrate.js && node apps/api/dist/main.js",
     "start:web": "npm run start --workspace=@odibrick/web"
   }
 }
