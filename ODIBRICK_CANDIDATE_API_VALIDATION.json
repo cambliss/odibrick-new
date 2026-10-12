@@ -1,0 +1,98 @@
+{
+  "executedAt": "2026-10-09T11:44:51.979Z",
+  "candidateDatabase": "odibrick_v2",
+  "testResults": [
+    {
+      "testId": "TC-01",
+      "name": "Backend Health Check",
+      "route": "GET /api/health",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "status: ok, database: up, latency: 1ms"
+    },
+    {
+      "testId": "TC-02",
+      "name": "Public Marketplace Search",
+      "route": "GET /api/properties?perPage=20",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "total: 26, returned: 20, page: 1"
+    },
+    {
+      "testId": "TC-03",
+      "name": "Property Details Lookup",
+      "route": "GET /api/properties/india/mumbai/bandra-west/3bhk-apartment-rmmmydss",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "id: 56, publicId: 01M403H3CD31ZN27T3RMMMYDSS, title: \"Phase 9 Sea-Facing Luxury Apartment in Bandra West\""
+    },
+    {
+      "testId": "TC-04",
+      "name": "Super Admin Login & User Directory",
+      "route": "POST /api/auth/login + GET /api/admin/users",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "Auth: SUCCESS (SUPER_ADMIN), Users in DB: 47"
+    },
+    {
+      "testId": "TC-05",
+      "name": "Tenant1 Login & My Applications",
+      "route": "POST /api/auth/login + GET /api/applications/mine",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "Auth: SUCCESS (TENANT), Applications count: 9"
+    },
+    {
+      "testId": "TC-06",
+      "name": "Owner1 Login & My Properties",
+      "route": "POST /api/auth/login + GET /api/properties/mine",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "Auth: SUCCESS (OWNER), Owned Properties: 28"
+    },
+    {
+      "testId": "TC-07",
+      "name": "Legal Team Login & Case Workspace",
+      "route": "POST /api/auth/login + GET /api/legal/cases",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "Auth: SUCCESS (LEGAL_TEAM), Total Cases: 27"
+    },
+    {
+      "testId": "TC-08",
+      "name": "Admin Platform KPIs View Query (v_admin_kpis)",
+      "route": "GET /api/admin/kpis",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "Active Props: 26, Total Users: 47, Active Tenancies: 3"
+    },
+    {
+      "testId": "TC-09",
+      "name": "Public Storage Media Delivery",
+      "route": "GET /api/storage/:key",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "Status: HTTP 200, Content-Type: image/jpeg, Size: 36895 bytes"
+    },
+    {
+      "testId": "TC-10",
+      "name": "Builder Authentication (builder@demo.odibrick.test)",
+      "route": "POST /api/auth/login",
+      "httpStatus": 200,
+      "result": "PASSED ✓",
+      "responseSummary": "Auth: SUCCESS, Name: \"Demo Builder\", Role: BUILDER"
+    }
+  ],
+  "testWrites": {
+    "viewsDelta": 1,
+    "tokensDelta": 5,
+    "details": [
+      "GET /api/properties/:identifier: Inserted 1 view record into `property_views` for telemetry",
+      "POST /api/auth/login (super_admin@demo.odibrick.test): Updated users.last_login_at and inserted 1 row into refresh_tokens",
+      "POST /api/auth/login (tenant1@demo.odibrick.test): Updated users.last_login_at and inserted 1 row into refresh_tokens",
+      "POST /api/auth/login (owner1@demo.odibrick.test): Updated users.last_login_at and inserted 1 row into refresh_tokens",
+      "POST /api/auth/login (legal_team@demo.odibrick.test): Updated users.last_login_at and inserted 1 row into refresh_tokens",
+      "POST /api/auth/login (builder@demo.odibrick.test): Updated users.last_login_at and inserted 1 row into refresh_tokens"
+    ]
+  }
+}

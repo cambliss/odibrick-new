@@ -1,0 +1,110 @@
+{
+  "generatedAt": "2026-10-09T06:55:49.475Z",
+  "imagesReconciliation": {
+    "total": 230,
+    "physicalCount": 190,
+    "placeholderCount": 40,
+    "samplePhysical": [
+      {
+        "id": 1,
+        "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+        "propertyTitle": "4 BHK apartment in Hinjewadi",
+        "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-1.jpg",
+        "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-1.jpg",
+        "isCover": true,
+        "sizeBytes": 3080
+      },
+      {
+        "id": 2,
+        "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+        "propertyTitle": "4 BHK apartment in Hinjewadi",
+        "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-2.jpg",
+        "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-2.jpg",
+        "isCover": false,
+        "sizeBytes": 3080
+      },
+      {
+        "id": 3,
+        "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+        "propertyTitle": "4 BHK apartment in Hinjewadi",
+        "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-3.jpg",
+        "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-3.jpg",
+        "isCover": false,
+        "sizeBytes": 3080
+      },
+      {
+        "id": 4,
+        "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+        "propertyTitle": "4 BHK apartment in Hinjewadi",
+        "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-4.jpg",
+        "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-4.jpg",
+        "isCover": false,
+        "sizeBytes": 3084
+      },
+      {
+        "id": 5,
+        "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+        "propertyTitle": "4 BHK apartment in Hinjewadi",
+        "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-5.jpg",
+        "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-5.jpg",
+        "isCover": false,
+        "sizeBytes": 3090
+      }
+    ],
+    "samplePlaceholder": [
+      {
+        "id": 496,
+        "propertyPublicId": "E628BB99A1D3FBB40C03A5C7AD",
+        "propertyTitle": "3 BHK apartment in Madhapur",
+        "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/d3c91e28-54cb-4358-93d1-5794b5523eff.jpeg",
+        "cleanKey": "properties/832FD65C84FDA385716B873A76/2026-10/d3c91e28-54cb-4358-93d1-5794b5523eff.jpeg",
+        "isCover": true
+      },
+      {
+        "id": 495,
+        "propertyPublicId": "E628BB99A1D3FBB40C03A5C7AD",
+        "propertyTitle": "3 BHK apartment in Madhapur",
+        "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/3b658318-cb0b-4924-8c47-a2dc65f5d2a0.jpg",
+        "cleanKey": "properties/832FD65C84FDA385716B873A76/2026-10/3b658318-cb0b-4924-8c47-a2dc65f5d2a0.jpg",
+        "isCover": false
+      },
+      {
+        "id": 493,
+        "propertyPublicId": "E628BB99A1D3FBB40C03A5C7AD",
+        "propertyTitle": "3 BHK apartment in Madhapur",
+        "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/124b18b2-4860-4f1f-8754-2d0d76550a22.jpg",
+        "cleanKey": "properties/832FD65C84FDA385716B873A76/2026-10/124b18b2-4860-4f1f-8754-2d0d76550a22.jpg",
+        "isCover": false
+      },
+      {
+        "id": 494,
+        "propertyPublicId": "E628BB99A1D3FBB40C03A5C7AD",
+        "propertyTitle": "3 BHK apartment in Madhapur",
+        "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/1dfa9597-0a09-4125-b523-d30ec03ab63c.jpg",
+        "cleanKey": "properties/832FD65C84FDA385716B873A76/2026-10/1dfa9597-0a09-4125-b523-d30ec03ab63c.jpg",
+        "isCover": false
+      },
+      {
+        "id": 486,
+        "propertyPublicId": "DB65E10B45B11C2FDB8FD5ECCF",
+        "propertyTitle": "3 BHK villa in HSR Layout",
+        "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/0fdb9b6d-7741-4b82-95ba-c26175870205.jpg",
+        "cleanKey": "properties/832FD65C84FDA385716B873A76/2026-10/0fdb9b6d-7741-4b82-95ba-c26175870205.jpg",
+        "isCover": true
+      }
+    ]
+  },
+  "productionState": {
+    "status": "CONNECTED",
+    "currentUserCount": 20,
+    "currentPropertyCount": 18,
+    "prodOnlyUsers": [
+      {
+        "email": "prodtest2026@gmail.com",
+        "fullName": "Production Test",
+        "role": "TENANT"
+      }
+    ],
+    "prodOnlyPropsCount": 18
+  }
+}

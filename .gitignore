@@ -28,3 +28,9 @@ coverage/
 .nyc_output/
 *.tsbuildinfo
 next-env.d.ts
+
+# Backups and SQL dumps
+backups/
+*.sql
+*.sql.gz
+

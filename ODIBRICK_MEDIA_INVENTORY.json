@@ -1,0 +1,157 @@
+{
+  "diskFilesCount": 304,
+  "imagesCount": 230,
+  "imagesFound": 190,
+  "imagesMissing": 40,
+  "docsCount": 27,
+  "docsFound": 5,
+  "docsMissing": 22,
+  "unreferencedDiskFilesCount": 144,
+  "storageReadiness": {
+    "configuredDriver": "LOCAL",
+    "s3BucketConfigured": false,
+    "s3CredentialsAvailable": false,
+    "s3Endpoint": "AWS Default",
+    "localStoragePath": "C:\\Users\\Cambliss\\Downloads\\odibrick\\storage",
+    "servingRoutesOperational": true
+  },
+  "sampleImages": [
+    {
+      "id": 1,
+      "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+      "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-1.jpg",
+      "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-1.jpg",
+      "isCover": true,
+      "existsOnDisk": true,
+      "sizeBytes": 3080
+    },
+    {
+      "id": 2,
+      "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+      "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-2.jpg",
+      "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-2.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3080
+    },
+    {
+      "id": 3,
+      "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+      "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-3.jpg",
+      "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-3.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3080
+    },
+    {
+      "id": 4,
+      "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+      "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-4.jpg",
+      "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-4.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3084
+    },
+    {
+      "id": 5,
+      "propertyPublicId": "2035BF02C89353B0EE4581B7E9",
+      "storageKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-5.jpg",
+      "cleanKey": "demo/properties/2035BF02C89353B0EE4581B7E9/photo-5.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3090
+    },
+    {
+      "id": 6,
+      "propertyPublicId": "00FC08F142DB7A1800D2F39FF2",
+      "storageKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-1.jpg",
+      "cleanKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-1.jpg",
+      "isCover": true,
+      "existsOnDisk": true,
+      "sizeBytes": 3084
+    },
+    {
+      "id": 7,
+      "propertyPublicId": "00FC08F142DB7A1800D2F39FF2",
+      "storageKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-2.jpg",
+      "cleanKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-2.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3084
+    },
+    {
+      "id": 8,
+      "propertyPublicId": "00FC08F142DB7A1800D2F39FF2",
+      "storageKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-3.jpg",
+      "cleanKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-3.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3080
+    },
+    {
+      "id": 9,
+      "propertyPublicId": "00FC08F142DB7A1800D2F39FF2",
+      "storageKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-4.jpg",
+      "cleanKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-4.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3090
+    },
+    {
+      "id": 10,
+      "propertyPublicId": "00FC08F142DB7A1800D2F39FF2",
+      "storageKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-5.jpg",
+      "cleanKey": "demo/properties/00FC08F142DB7A1800D2F39FF2/photo-5.jpg",
+      "isCover": false,
+      "existsOnDisk": true,
+      "sizeBytes": 3091
+    }
+  ],
+  "sampleDocs": [
+    {
+      "id": 1,
+      "publicId": "01M407DR978DZVZE2KGRRTMNC8",
+      "category": "KYC",
+      "storageKey": "vault/USR-CUST-001/kyc/fake-aadhaar.pdf",
+      "cleanKey": "vault/USR-CUST-001/kyc/fake-aadhaar.pdf",
+      "existsOnDisk": false,
+      "sizeBytes": 51200
+    },
+    {
+      "id": 2,
+      "publicId": "01M407DRB8ZFRWC3926XVGWWBB",
+      "category": "KYC",
+      "storageKey": "vault/USR-CUST-001/kyc/2026-10/0c206114-1022-4f12-a525-4ccc1b206524.pdf",
+      "cleanKey": "vault/USR-CUST-001/kyc/2026-10/0c206114-1022-4f12-a525-4ccc1b206524.pdf",
+      "existsOnDisk": true,
+      "sizeBytes": 44
+    },
+    {
+      "id": 3,
+      "publicId": "01M407F4HF49Q4PZRN2RSN64K8",
+      "category": "KYC",
+      "storageKey": "vault/USR-CUST-001/kyc/fake-aadhaar.pdf",
+      "cleanKey": "vault/USR-CUST-001/kyc/fake-aadhaar.pdf",
+      "existsOnDisk": false,
+      "sizeBytes": 51200
+    },
+    {
+      "id": 4,
+      "publicId": "01M407F4KFF0JGWVRP6J514EJ3",
+      "category": "KYC",
+      "storageKey": "vault/USR-CUST-001/kyc/2026-10/0262256f-36d9-4e10-8613-6c011fe9712c.pdf",
+      "cleanKey": "vault/USR-CUST-001/kyc/2026-10/0262256f-36d9-4e10-8613-6c011fe9712c.pdf",
+      "existsOnDisk": true,
+      "sizeBytes": 44
+    },
+    {
+      "id": 5,
+      "publicId": "01M407F4NHMF5MDFAPWF8P872Q",
+      "category": "OWNERSHIP",
+      "storageKey": "vault/test/prop/sale_deed.pdf",
+      "cleanKey": "vault/test/prop/sale_deed.pdf",
+      "existsOnDisk": false,
+      "sizeBytes": 81920
+    }
+  ]
+}
