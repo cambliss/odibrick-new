@@ -371,20 +371,21 @@ export class PropertiesService {
       return { status: 'REJECTED' };
     }
 
+    if (property.status !== 'PENDING_VERIFICATION') {
+      throw new BadRequestException(
+        `Cannot approve listing in ${property.status} status. Only listings in PENDING_VERIFICATION can be approved.`,
+      );
+    }
+
     await this.db.update('properties', id, {
       status: 'ACTIVE',
       published_at: property.published_at ?? new Date(),
       rejection_reason: null,
     });
-    await this.db.execute(
-      `UPDATE property_verifications SET status = 'VERIFIED', verified_at = NOW(), reviewer_id = ?
-        WHERE property_id = ? AND check_type IN ('KYC','OWNER_IDENTITY','ADDRESS')`,
-      [user.id, id],
-    );
     await this.db.insert('property_timeline', {
       property_id: id,
-      event_code: 'PROPERTY_VERIFIED',
-      title: 'Listing verified and published',
+      event_code: 'PROPERTY_APPROVED',
+      title: 'Listing approved and published',
       actor_id: user.id,
     });
     await this.audit.record({ actor: user, action: 'property.approved', objectType: 'property', objectId: id, req });
@@ -761,7 +762,56 @@ export class PropertiesService {
     roomTag?: string,
     req?: Request,
   ) {
-    await this.assertCanEdit(user, propertyId);
+    const property = await this.assertCanEdit(user, propertyId);
+
+    if (!storageKey || typeof storageKey !== 'string') {
+      throw new BadRequestException('A valid storageKey is required.');
+    }
+
+    const cleanKey = storageKey.trim().replace(/\\/g, '/');
+    if (cleanKey.includes('..') || cleanKey.startsWith('/')) {
+      throw new BadRequestException('Invalid storageKey path.');
+    }
+
+    if (
+      cleanKey.startsWith('vault/') ||
+      cleanKey.includes('vault/') ||
+      cleanKey.includes('kyc/') ||
+      cleanKey.includes('documents/')
+    ) {
+      throw new ForbiddenException('Cannot attach private vault or compliance documents as property photos.');
+    }
+
+    const isPropertiesNamespace = cleanKey.startsWith('properties/') || cleanKey.startsWith('demo/properties/');
+    if (!isPropertiesNamespace) {
+      throw new BadRequestException('Property images must reside within the permitted properties/ storage namespace.');
+    }
+
+    const isStaff =
+      user.permissions.includes('property.moderate') ||
+      user.roles.some((r) => ['ADMIN', 'SUPER_ADMIN', 'OPS_ADMIN'].includes(r));
+
+    if (!isStaff) {
+      const allowedPrefixes = [`properties/${user.publicId}/`];
+      if (property.listed_by_user_id && property.listed_by_user_id !== user.id) {
+        const lister = await this.db.one<{ public_id: string }>(
+          'SELECT public_id FROM users WHERE id = ?',
+          [property.listed_by_user_id],
+        );
+        if (lister?.public_id) {
+          allowedPrefixes.push(`properties/${lister.public_id}/`);
+        }
+      }
+
+      const belongsToAuthorizedUser =
+        allowedPrefixes.some((prefix) => cleanKey.startsWith(prefix)) ||
+        cleanKey.startsWith('demo/properties/');
+
+      if (!belongsToAuthorizedUser) {
+        throw new ForbiddenException('Image storage key does not belong to the authorized user or property.');
+      }
+    }
+
     const count = await this.db.one<{ c: number }>(
       'SELECT COUNT(*) AS c FROM property_images WHERE property_id = ?',
       [propertyId],
@@ -770,7 +820,7 @@ export class PropertiesService {
     const sortOrder = count?.c ?? 0;
     const id = await this.db.insert('property_images', {
       property_id: propertyId,
-      storage_key: storageKey,
+      storage_key: cleanKey,
       caption: caption ?? null,
       room_tag: roomTag ?? null,
       is_cover: isCover,

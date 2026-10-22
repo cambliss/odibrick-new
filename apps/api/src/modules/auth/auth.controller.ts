@@ -20,7 +20,7 @@ export class AuthController {
   async register(@Body() dto: RegisterDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.register(dto, req);
     this.setCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user, accessToken: result.accessToken, expiresIn: result.expiresIn };
+    return { user: result.user, expiresIn: result.expiresIn };
   }
 
   @Public()
@@ -30,7 +30,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.login(dto, req);
     this.setCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user, accessToken: result.accessToken, expiresIn: result.expiresIn };
+    return { user: result.user, expiresIn: result.expiresIn };
   }
 
   @Public()
@@ -40,7 +40,7 @@ export class AuthController {
     const token = dto.refreshToken ?? (req as any).cookies?.[REFRESH_COOKIE];
     const result = await this.auth.refresh(token, req);
     this.setCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user, accessToken: result.accessToken, expiresIn: result.expiresIn };
+    return { user: result.user, expiresIn: result.expiresIn };
   }
 
   @Public()

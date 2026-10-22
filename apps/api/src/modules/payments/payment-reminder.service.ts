@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -415,7 +415,24 @@ export class PaymentReminderService {
    * Retrieve active payment escalations for Odibrick Management.
    */
   async getPaymentEscalations(filters: { minDaysOverdue?: number; stage?: string; limit?: number; asOfDate?: string }) {
-    const minDays = filters.minDaysOverdue ?? 1;
+    let minDays = 1;
+    if (filters.minDaysOverdue !== undefined && filters.minDaysOverdue !== null) {
+      const parsedMin = Number(filters.minDaysOverdue);
+      if (isNaN(parsedMin) || !Number.isFinite(parsedMin) || parsedMin < 0) {
+        throw new BadRequestException('Invalid minDaysOverdue parameter: must be a non-negative integer.');
+      }
+      minDays = Math.floor(parsedMin);
+    }
+
+    let limit = 50;
+    if (filters.limit !== undefined && filters.limit !== null) {
+      const parsedLimit = Number(filters.limit);
+      if (isNaN(parsedLimit) || !Number.isFinite(parsedLimit) || parsedLimit < 1) {
+        throw new BadRequestException('Invalid limit parameter: limit must be a positive integer.');
+      }
+      limit = Math.min(100, Math.floor(parsedLimit));
+    }
+
     const asOfParam = filters.asOfDate || null;
     const rows = await this.db.query(
       `SELECT p.id, p.public_id, p.reference_code, p.purpose, p.amount, p.tax_amount, p.total_amount, p.currency,
@@ -440,7 +457,7 @@ export class PaymentReminderService {
           AND DATEDIFF(COALESCE(?, CURDATE()), p.due_date) >= ?
         ORDER BY p.due_date ASC
         LIMIT ?`,
-      [asOfParam, asOfParam, asOfParam, minDays, filters.limit ?? 50],
+      [asOfParam, asOfParam, asOfParam, minDays, limit],
     );
 
     return rows.map((r: any) => {

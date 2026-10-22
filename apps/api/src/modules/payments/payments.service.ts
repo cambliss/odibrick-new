@@ -184,11 +184,11 @@ export class PaymentsService {
     dueDate?: string;
     notes?: string;
   }): Promise<number> {
-    const seq = await this.db.one<{ maxId: number }>('SELECT COALESCE(MAX(id), 0) AS maxId FROM payments');
+    const seq = await this.db.nextSequence('PAY');
     const tax = input.taxRate ? Number((input.amount * input.taxRate / 100).toFixed(2)) : 0;
     const id = await this.db.insert('payments', {
       public_id: newPublicId(),
-      reference_code: formatReference('PAY', (seq?.maxId ?? 0) + 1),
+      reference_code: formatReference('PAY', seq),
       payer_user_id: input.payerUserId,
       payee_user_id: input.payeeUserId ?? null,
       tenancy_id: input.tenancyId ?? null,
@@ -249,7 +249,7 @@ export class PaymentsService {
     };
   }
 
-  /** Allows the authenticated payer to settle their payment in demo/transfer flow. */
+  /** Allows the authenticated payer to submit their payment claim/reference in transfer flow. Awaiting operator confirmation. */
   async settleByPayer(
     user: AuthUser,
     paymentId: number,
@@ -258,63 +258,135 @@ export class PaymentsService {
   ) {
     const payment = await this.assertPayer(user, paymentId);
     if (payment.status === 'PAID') throw new BadRequestException('This payment is already settled.');
+    if (payment.status === 'PROCESSING') {
+      throw new BadRequestException('A payment claim has already been submitted and is currently pending verification.');
+    }
 
-    const txnRef = dto.reference ?? `UPI-${randomToken(8).toUpperCase()}`;
-    await this.db.insert('payment_transactions', {
-      payment_id: payment.id,
-      txn_reference: `TXN-${randomToken(8).toUpperCase()}`,
-      direction: 'COLLECTION',
-      provider: 'manual',
-      provider_txn_id: txnRef,
-      method: dto.method ?? 'UPI',
-      amount: Number(payment.total_amount),
-      currency: payment.currency,
-      status: 'SUCCESS',
-      idempotency_key: `payer:${payment.id}:${txnRef}`,
+    const txnRef = dto.reference ? dto.reference.trim() : `UPI-${randomToken(8).toUpperCase()}`;
+
+    await this.db.transaction(async (conn) => {
+      const [locked]: any = await conn.execute(
+        'SELECT id, status FROM payments WHERE id = ? FOR UPDATE',
+        [paymentId],
+      );
+      if (locked?.length && locked[0].status === 'PAID') {
+        throw new BadRequestException('This payment is already settled.');
+      }
+      if (locked?.length && locked[0].status === 'PROCESSING') {
+        throw new BadRequestException('A payment claim has already been submitted and is currently pending verification.');
+      }
+
+      await this.db.insert('payment_transactions', {
+        payment_id: payment.id,
+        txn_reference: `TXN-${randomToken(8).toUpperCase()}`,
+        direction: 'COLLECTION',
+        provider: 'manual',
+        provider_txn_id: txnRef,
+        method: dto.method ?? 'UPI',
+        amount: Number(payment.total_amount),
+        currency: payment.currency,
+        status: 'PENDING',
+        idempotency_key: `payer:${payment.id}:${txnRef}`,
+      });
+
+      await this.db.update('payments', payment.id, {
+        status: 'PROCESSING',
+        settlement_status: 'PENDING',
+      });
     });
 
-    await this.markPaid(payment.id, `payer:${user.id}`);
     await this.audit.record({
       actor: user,
-      action: 'payment.settled',
+      action: 'payment.claim_submitted',
       objectType: 'payment',
       objectId: payment.id,
       metadata: { method: dto.method ?? 'UPI', reference: txnRef },
       req,
     });
-    return { id: payment.id, status: 'PAID', referenceCode: payment.reference_code };
+    return {
+      id: payment.id,
+      status: 'PROCESSING',
+      referenceCode: payment.reference_code,
+      message: 'Payment reference submitted and pending operator confirmation.',
+    };
   }
 
   /** Provider webhook. Signature is verified inside the adapter. */
   async handleCallback(payload: Record<string, unknown>, signature?: string) {
     const verified = await this.provider.verifyCallback(payload, signature);
-    const txn = await this.db.one<any>(
-      'SELECT * FROM payment_transactions WHERE provider_order_id = ? ORDER BY id DESC LIMIT 1',
-      [verified.providerOrderId],
-    );
-    if (!txn) {
+
+    const { handled, duplicate, newlyMarked, payment, tenancyTransition, tenancy } = await this.db.transaction(async (conn) => {
+      const [txns]: any = await conn.execute(
+        'SELECT * FROM payment_transactions WHERE provider_order_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE',
+        [verified.providerOrderId],
+      );
+      if (!txns.length) {
+        return { handled: false, duplicate: false, newlyMarked: false, payment: null, tenancyTransition: null, tenancy: null };
+      }
+      const txn = txns[0];
+
+      // Idempotency: if transaction is already marked SUCCESS, duplicate callback delivery
+      if (txn.status === 'SUCCESS') {
+        return { handled: true, duplicate: true, newlyMarked: false, payment: null, tenancyTransition: null, tenancy: null };
+      }
+
+      if (verified.providerTxnId) {
+        const [dupTxn]: any = await conn.execute(
+          'SELECT id FROM payment_transactions WHERE provider_txn_id = ? AND id <> ? LIMIT 1',
+          [verified.providerTxnId, txn.id],
+        );
+        if (dupTxn.length > 0) {
+          return { handled: true, duplicate: true, newlyMarked: false, payment: null, tenancyTransition: null, tenancy: null };
+        }
+      }
+
+      const txnStatus = verified.status === 'SUCCESS' ? 'SUCCESS' : verified.status === 'FAILED' ? 'FAILED' : 'PENDING';
+
+      await conn.execute(
+        `UPDATE payment_transactions
+            SET provider_txn_id = ?, method = ?, status = ?, failure_code = ?, failure_reason = ?, raw_payload = ?
+          WHERE id = ?`,
+        [
+          verified.providerTxnId ?? null,
+          verified.method ?? null,
+          txnStatus,
+          verified.failureCode ?? null,
+          verified.failureReason ?? null,
+          verified.raw ? JSON.stringify(verified.raw) : null,
+          txn.id,
+        ],
+      );
+
+      if (verified.status === 'SUCCESS') {
+        const res = await this.applyPaymentSuccess(conn, txn.payment_id, 'provider-callback');
+        return {
+          handled: true,
+          duplicate: false,
+          newlyMarked: res.newlyMarked,
+          payment: res.payment,
+          tenancyTransition: res.tenancyTransition,
+          tenancy: res.tenancy,
+        };
+      } else if (verified.status === 'FAILED') {
+        await conn.execute(
+          `UPDATE payments SET status = 'FAILED' WHERE id = ? AND status <> 'PAID'`,
+          [txn.payment_id],
+        );
+        return { handled: true, duplicate: false, newlyMarked: false, payment: null, tenancyTransition: null, tenancy: null };
+      }
+
+      return { handled: true, duplicate: false, newlyMarked: false, payment: null, tenancyTransition: null, tenancy: null };
+    });
+
+    if (!handled) {
       this.logger.warn(`Callback for unknown order ${verified.providerOrderId}`);
       return { handled: false };
     }
-
-    const duplicate = await this.db.one<any>(
-      'SELECT id FROM payment_transactions WHERE provider_txn_id = ? LIMIT 1', [verified.providerTxnId],
-    );
-    if (duplicate) return { handled: true, duplicate: true };
-
-    await this.db.update('payment_transactions', txn.id, {
-      provider_txn_id: verified.providerTxnId,
-      method: verified.method ?? null,
-      status: verified.status === 'SUCCESS' ? 'SUCCESS' : verified.status === 'FAILED' ? 'FAILED' : 'PENDING',
-      failure_code: verified.failureCode ?? null,
-      failure_reason: verified.failureReason ?? null,
-      raw_payload: verified.raw ? JSON.stringify(verified.raw) : null,
-    });
-
-    if (verified.status === 'SUCCESS') {
-      await this.markPaid(txn.payment_id, 'provider-callback');
-    } else if (verified.status === 'FAILED') {
-      await this.db.update('payments', txn.payment_id, { status: 'FAILED' });
+    if (duplicate) {
+      return { handled: true, duplicate: true };
+    }
+    if (newlyMarked && payment) {
+      await this.dispatchPaymentNotifications(payment, tenancyTransition, tenancy);
     }
     return { handled: true };
   }
@@ -327,39 +399,189 @@ export class PaymentsService {
     const payment = await this.db.one<any>('SELECT * FROM payments WHERE id = ?', [paymentId]);
     if (!payment) throw new NotFoundException('Payment not found.');
     if (payment.status === 'PAID') throw new BadRequestException('This payment is already recorded as settled.');
-    if (!dto.bankReference) throw new BadRequestException('Enter the bank or UPI reference for this credit.');
+    if (!dto.bankReference || !dto.bankReference.trim()) {
+      throw new BadRequestException('Enter the bank or UPI reference for this credit.');
+    }
+    const bankRef = dto.bankReference.trim();
 
-    await this.db.insert('payment_transactions', {
-      payment_id: paymentId,
-      txn_reference: `TXN-${randomToken(8).toUpperCase()}`,
-      direction: 'COLLECTION',
-      provider: 'manual',
-      provider_txn_id: dto.bankReference,
-      method: dto.method ?? 'NEFT',
-      amount: dto.amount ?? Number(payment.total_amount),
-      currency: payment.currency,
-      status: 'SUCCESS',
-      idempotency_key: `manual:${paymentId}:${dto.bankReference}`,
+    const { newlyMarked, tenancyTransition, tenancy } = await this.db.transaction(async (conn) => {
+      const [payments]: any = await conn.execute(
+        'SELECT * FROM payments WHERE id = ? FOR UPDATE',
+        [paymentId],
+      );
+      if (payments?.length && payments[0].status === 'PAID') {
+        throw new BadRequestException('This payment is already recorded as settled.');
+      }
+
+      const idemKey = `manual:${paymentId}:${bankRef}`;
+      const [existingTxn]: any = await conn.execute(
+        'SELECT id FROM payment_transactions WHERE idempotency_key = ? LIMIT 1',
+        [idemKey],
+      );
+      if (existingTxn?.length > 0) {
+        throw new BadRequestException('A transaction with this bank reference has already been recorded for this payment.');
+      }
+
+      await this.db.insert('payment_transactions', {
+        payment_id: paymentId,
+        txn_reference: `TXN-${randomToken(8).toUpperCase()}`,
+        direction: 'COLLECTION',
+        provider: 'manual',
+        provider_txn_id: bankRef,
+        method: dto.method ?? 'NEFT',
+        amount: dto.amount ?? Number(payment.total_amount),
+        currency: payment.currency,
+        status: 'SUCCESS',
+        idempotency_key: idemKey,
+      });
+
+      await this.db.update('payments', paymentId, {
+        status: 'PAID',
+        paid_at: new Date(),
+        settlement_status: this.provider.custodial ? 'PENDING' : 'SETTLED',
+        settled_at: this.provider.custodial ? null : new Date(),
+      });
+
+      const res = await this.applyPaymentSuccess(conn, paymentId, `recorded-by:${user.id}`);
+      return res;
     });
-    await this.markPaid(paymentId, `recorded-by:${user.id}`);
+
+    if (newlyMarked) {
+      await this.dispatchPaymentNotifications(payment, tenancyTransition, tenancy);
+    }
+
     await this.audit.record({
-      actor: user, action: 'payment.recorded_offline', objectType: 'payment', objectId: paymentId,
-      metadata: { bankReference: dto.bankReference }, req,
+      actor: user,
+      action: 'payment.recorded_offline',
+      objectType: 'payment',
+      objectId: paymentId,
+      metadata: { bankReference: bankRef },
+      req,
     });
     return { id: paymentId, status: 'PAID' };
   }
 
   private async markPaid(paymentId: number, source: string) {
-    const payment = await this.db.one<any>('SELECT * FROM payments WHERE id = ?', [paymentId]);
-    if (!payment) return;
-
-    await this.db.update('payments', paymentId, {
-      status: 'PAID',
-      paid_at: new Date(),
-      settlement_status: this.provider.custodial ? 'PENDING' : 'SETTLED',
-      settled_at: this.provider.custodial ? null : new Date(),
+    const res = await this.db.transaction(async (conn) => {
+      return this.applyPaymentSuccess(conn, paymentId, source);
     });
+    if (res.newlyMarked && res.payment) {
+      await this.dispatchPaymentNotifications(res.payment, res.tenancyTransition, res.tenancy);
+    }
+  }
 
+  private async applyPaymentSuccess(
+    conn: any,
+    paymentId: number,
+    source: string,
+  ): Promise<{ payment: any; newlyMarked: boolean; tenancyTransition: 'CHECK_IN' | 'CLOSED' | null; tenancy: any }> {
+    const [payments]: any = await conn.execute(
+      'SELECT * FROM payments WHERE id = ? FOR UPDATE',
+      [paymentId],
+    );
+    if (!payments.length) {
+      return { payment: null, newlyMarked: false, tenancyTransition: null, tenancy: null };
+    }
+    const payment = payments[0];
+    if (payment.status === 'PAID') {
+      return { payment, newlyMarked: false, tenancyTransition: null, tenancy: null };
+    }
+
+    const settledAt = this.provider.custodial ? null : new Date();
+    const settlementStatus = this.provider.custodial ? 'PENDING' : 'SETTLED';
+
+    await conn.execute(
+      `UPDATE payments SET status = 'PAID', paid_at = NOW(), settlement_status = ?, settled_at = ? WHERE id = ?`,
+      [settlementStatus, settledAt, paymentId],
+    );
+
+    // Synchronize linked Commercial Obligations
+    await conn.execute(
+      `UPDATE commercial_obligations SET status = 'PAID' WHERE payment_id = ? AND status != 'PAID'`,
+      [paymentId],
+    );
+
+    // Activate linked Listing Promotions upon payment settlement
+    const [promos]: any = await conn.execute(
+      `SELECT lp.*, mp.duration_days
+         FROM listing_promotions lp
+         LEFT JOIN marketing_packages mp ON mp.id = lp.package_id
+        WHERE lp.payment_id = ? AND lp.status = 'PENDING_PAYMENT'`,
+      [paymentId],
+    );
+    if (promos.length > 0) {
+      const promo = promos[0];
+      const durationDays = Number(promo.duration_days || 30);
+      const startsAt = new Date();
+      const endsAt = new Date(Date.now() + durationDays * 86400000);
+      await conn.execute(
+        `UPDATE listing_promotions SET status = 'ACTIVE', starts_at = ?, ends_at = ? WHERE id = ?`,
+        [startsAt, endsAt, promo.id],
+      );
+      await conn.execute(
+        `UPDATE properties SET is_featured = 1, visibility_tier = ?, featured_until = ?, promoted_until = ? WHERE id = ?`,
+        [promo.visibility_tier || 'FEATURED', endsAt, endsAt, promo.listing_id],
+      );
+    }
+
+    let tenancyTransition: 'CHECK_IN' | 'CLOSED' | null = null;
+    let tenancyRow: any = null;
+
+    if (payment.tenancy_id) {
+      const [tenancies]: any = await conn.execute(
+        'SELECT * FROM tenancies WHERE id = ? FOR UPDATE',
+        [payment.tenancy_id],
+      );
+      if (tenancies.length > 0) {
+        tenancyRow = tenancies[0];
+        if (tenancyRow.stage === 'AWAITING_PAYMENT') {
+          const [outstanding]: any = await conn.execute(
+            `SELECT COUNT(*) AS c FROM payments
+              WHERE tenancy_id = ? AND purpose IN ('SECURITY_DEPOSIT','ADVANCE_RENT') AND status <> 'PAID' AND id <> ?`,
+            [payment.tenancy_id, paymentId],
+          );
+          if ((outstanding[0]?.c ?? 0) === 0) {
+            await conn.execute(`UPDATE tenancies SET stage = 'CHECK_IN_PENDING' WHERE id = ?`, [payment.tenancy_id]);
+            await conn.execute(
+              `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title)
+               VALUES (?, ?, 'PAYMENT_COMPLETED', 'Move-in payments completed')`,
+              [tenancyRow.property_id, payment.tenancy_id],
+            );
+            tenancyTransition = 'CHECK_IN';
+          }
+        } else if (tenancyRow.stage === 'MOVE_OUT' && payment.purpose === 'REFUND') {
+          const [openRefunds]: any = await conn.execute(
+            `SELECT COUNT(*) AS c FROM payments
+              WHERE tenancy_id = ? AND purpose = 'REFUND' AND status <> 'PAID' AND id <> ?`,
+            [payment.tenancy_id, paymentId],
+          );
+          if ((openRefunds[0]?.c ?? 0) === 0) {
+            await conn.execute(`UPDATE tenancies SET stage = 'CLOSED', closed_at = NOW() WHERE id = ?`, [payment.tenancy_id]);
+            await conn.execute(
+              `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title, detail, actor_id)
+               VALUES (?, ?, 'TENANCY_CLOSED', 'Tenancy closed', ?, ?)`,
+              [
+                tenancyRow.property_id,
+                payment.tenancy_id,
+                `Security deposit refund of INR ${Number(payment.total_amount).toLocaleString('en-IN')} settled. Tenancy closed.`,
+                payment.payer_user_id,
+              ],
+            );
+            tenancyTransition = 'CLOSED';
+          }
+        }
+      }
+    }
+
+    this.logger.log(`Payment ${payment.reference_code} marked PAID (${source})`);
+    return { payment, newlyMarked: true, tenancyTransition, tenancy: tenancyRow };
+  }
+
+  private async dispatchPaymentNotifications(
+    payment: any,
+    tenancyTransition: 'CHECK_IN' | 'CLOSED' | null,
+    tenancy: any,
+  ) {
     if (payment.payee_user_id) {
       await this.notify.send(payment.payee_user_id, 'PAYMENT_RECEIVED', {
         title: 'Payment received',
@@ -373,88 +595,14 @@ export class PaymentsService {
       actionUrl: '/dashboard/payments',
     });
 
-    if (payment.tenancy_id) {
-      await this.advanceTenancyAfterPayment(payment, payment.tenancy_id);
-    }
-
-    // Synchronize linked Commercial Obligations
-    await this.db.execute(
-      `UPDATE commercial_obligations SET status = 'PAID' WHERE payment_id = ? AND status != 'PAID'`,
-      [paymentId],
-    );
-
-    // Activate linked Listing Promotions upon payment settlement
-    const promo = await this.db.one<any>(
-      `SELECT lp.*, mp.duration_days
-         FROM listing_promotions lp
-         LEFT JOIN marketing_packages mp ON mp.id = lp.package_id
-        WHERE lp.payment_id = ? AND lp.status = 'PENDING_PAYMENT'`,
-      [paymentId],
-    );
-    if (promo) {
-      const durationDays = Number(promo.duration_days || 30);
-      const startsAt = new Date();
-      const endsAt = new Date(Date.now() + durationDays * 86400000);
-      await this.db.update('listing_promotions', promo.id, {
-        status: 'ACTIVE',
-        starts_at: startsAt,
-        ends_at: endsAt,
-      });
-      await this.db.update('properties', promo.listing_id, {
-        is_featured: 1,
-        visibility_tier: promo.visibility_tier || 'FEATURED',
-        featured_until: endsAt,
-        promoted_until: endsAt,
-      });
-    }
-
-    this.logger.log(`Payment ${payment.reference_code} marked PAID (${source})`);
-  }
-
-  /** Advances tenancy after payment: move-in dues advance to check-in, deposit refund advances to closed. */
-  private async advanceTenancyAfterPayment(payment: any, tenancyId: number) {
-    const tenancy = await this.db.one<any>('SELECT * FROM tenancies WHERE id = ?', [tenancyId]);
-    if (!tenancy) return;
-
-    if (tenancy.stage === 'AWAITING_PAYMENT') {
-      const outstanding = await this.db.one<{ c: number }>(
-        `SELECT COUNT(*) AS c FROM payments
-          WHERE tenancy_id = ? AND purpose IN ('SECURITY_DEPOSIT','ADVANCE_RENT') AND status <> 'PAID'`,
-        [tenancyId],
-      );
-      if ((outstanding?.c ?? 0) > 0) return;
-
-      await this.db.update('tenancies', tenancyId, { stage: 'CHECK_IN_PENDING' });
-      await this.db.insert('property_timeline', {
-        property_id: tenancy.property_id,
-        tenancy_id: tenancyId,
-        event_code: 'PAYMENT_COMPLETED',
-        title: 'Move-in payments completed',
-      });
+    if (tenancyTransition === 'CHECK_IN' && tenancy) {
       await this.notify.send(tenancy.tenant_user_id, 'CHECK_IN_PENDING', {
         title: 'Document your home',
         body: 'Record the Day 1 condition report as soon as you take possession. It protects your deposit.',
         actionUrl: '/dashboard/condition-report',
         severity: 'ACTION',
       });
-    } else if (tenancy.stage === 'MOVE_OUT' && payment.purpose === 'REFUND') {
-      const openRefunds = await this.db.one<{ c: number }>(
-        `SELECT COUNT(*) AS c FROM payments
-          WHERE tenancy_id = ? AND purpose = 'REFUND' AND status <> 'PAID'`,
-        [tenancyId],
-      );
-      if ((openRefunds?.c ?? 0) > 0) return;
-
-      await this.db.update('tenancies', tenancyId, { stage: 'CLOSED', closed_at: new Date() });
-      await this.db.insert('property_timeline', {
-        property_id: tenancy.property_id,
-        tenancy_id: tenancyId,
-        event_code: 'TENANCY_CLOSED',
-        title: 'Tenancy closed',
-        detail: `Security deposit refund of INR ${Number(payment.total_amount).toLocaleString('en-IN')} settled. Tenancy closed.`,
-        actor_id: payment.payer_user_id,
-      });
-
+    } else if (tenancyTransition === 'CLOSED' && tenancy) {
       await this.notify.send(payment.payee_user_id, 'PAYMENT_RECEIVED', {
         title: 'Security deposit refund settled',
         body: `Security deposit refund of INR ${Number(payment.total_amount).toLocaleString('en-IN')} has been recorded.`,
@@ -464,7 +612,7 @@ export class PaymentsService {
       await this.notify.sendMany([tenancy.owner_user_id, tenancy.tenant_user_id], 'PAYMENT_RECEIVED', {
         title: 'Tenancy closed',
         body: 'Tenancy closed. Final settlement complete.',
-        actionUrl: `/dashboard/tenancy/${tenancyId}`,
+        actionUrl: `/dashboard/tenancy/${tenancy.id}`,
       });
 
       await this.audit.record({
@@ -479,7 +627,7 @@ export class PaymentsService {
         action: 'deposit.refund_paid',
         objectType: 'payment',
         objectId: payment.id,
-        metadata: { tenancyId, refundAmount: Number(payment.total_amount) },
+        metadata: { tenancyId: tenancy.id, refundAmount: Number(payment.total_amount) },
       });
 
       await this.audit.record({
@@ -493,7 +641,7 @@ export class PaymentsService {
         },
         action: 'tenancy.closed',
         objectType: 'tenancy',
-        objectId: tenancyId,
+        objectId: tenancy.id,
         metadata: { paymentId: payment.id, refundAmount: Number(payment.total_amount) },
       });
     }

@@ -56,19 +56,13 @@ export class FinancialOperationsService {
 
   private async generateNextRunNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const maxRow = await this.db.one<any>(
-      'SELECT COALESCE(MAX(id), 0) AS max_id FROM financial_reconciliation_runs',
-    );
-    const nextSeq = (maxRow?.max_id || 0) + 1;
+    const nextSeq = await this.db.nextSequence('RECON');
     return `ODB-RECON-${year}-${String(nextSeq).padStart(6, '0')}`;
   }
 
   private async generateNextExceptionNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const maxRow = await this.db.one<any>(
-      'SELECT COALESCE(MAX(id), 0) AS max_id FROM financial_exceptions',
-    );
-    const nextSeq = (maxRow?.max_id || 0) + 1;
+    const nextSeq = await this.db.nextSequence('EXC');
     return `ODB-EXC-${year}-${String(nextSeq).padStart(6, '0')}`;
   }
 

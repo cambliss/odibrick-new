@@ -51,8 +51,11 @@ function req(path, options = {}, body = null) {
 async function login(email, password) {
   await sleep(150); // Respect rate limit
   const res = await req('/auth/login', { method: 'POST' }, { email, password });
-  if (res.ok && res.data?.accessToken) {
-    return res.data.accessToken;
+  const setCookie = res.headers ? (typeof res.headers.get === 'function' ? res.headers.get('set-cookie') : res.headers['set-cookie']) : null;
+  const cookieToken = setCookie ? (String(setCookie).match(/odb_at=([^;]+)/)?.[1]) : null;
+  const token = res.data?.accessToken || cookieToken;
+  if (res.ok && token) {
+    return token;
   }
   console.error(`Login failed for ${email}:`, res.status, res.data);
   return null;

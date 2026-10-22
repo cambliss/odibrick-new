@@ -57,6 +57,12 @@ export class CommunicationsService {
     propertyId?: number;
     parties: Array<{ userId: number; role: ParticipantRole }>;
   }> {
+    if (!contextType || !Object.values(ConversationContextType).includes(contextType)) {
+      throw new BadRequestException(
+        `Invalid contextType "${contextType}". Supported values: ${Object.values(ConversationContextType).join(', ')}.`,
+      );
+    }
+
     const parties: Array<{ userId: number; role: ParticipantRole }> = [];
     let title = `${contextType} #${contextId}`;
     let propertyId: number | undefined;
@@ -255,6 +261,12 @@ export class CommunicationsService {
     initialMessage?: string,
     creatorUser?: AuthUser,
   ) {
+    if (!contextType || !Object.values(ConversationContextType).includes(contextType)) {
+      throw new BadRequestException(
+        `Invalid contextType "${contextType}". Supported values: ${Object.values(ConversationContextType).join(', ')}.`,
+      );
+    }
+
     let conv = await this.db.one<any>(
       `SELECT * FROM conversations WHERE context_type = ? AND context_id = ?`,
       [contextType, contextId],
@@ -263,50 +275,87 @@ export class CommunicationsService {
     const meta = await this.resolveContextMetadata(contextType, contextId);
 
     if (!conv) {
-      const convId = await this.db.insert('conversations', {
-        context_type: contextType,
-        context_id: contextId,
-        title: initialTitle || meta.title,
-        status: ConversationStatus.OPEN,
-        created_by: creatorUser ? creatorUser.id : null,
-      });
-
-      const publicId = `ODB-CNV-2026-${String(convId).padStart(6, '0')}`;
-      await this.db.execute('UPDATE conversations SET public_id = ? WHERE id = ?', [publicId, convId]);
-
-      conv = await this.db.one<any>('SELECT * FROM conversations WHERE id = ?', [convId]);
-
-      // Add resolved participants
-      for (const p of meta.parties) {
-        if (p.userId) {
-          await this.db.execute(
-            `INSERT IGNORE INTO conversation_participants (conversation_id, user_id, role)
-             VALUES (?, ?, ?)`,
-            [conv.id, p.userId, p.role],
+      let convId: number | undefined;
+      let isNew = false;
+      try {
+        convId = await this.db.insert('conversations', {
+          context_type: contextType,
+          context_id: contextId,
+          title: initialTitle || meta.title,
+          status: ConversationStatus.OPEN,
+          created_by: creatorUser ? creatorUser.id : null,
+        });
+        isNew = true;
+      } catch (err: any) {
+        // Race condition handler: if a concurrent request created the record first
+        if (
+          err.code === 'ER_DUP_ENTRY' ||
+          err.message?.includes('Duplicate entry') ||
+          err.message?.includes('uq_conv_context')
+        ) {
+          conv = await this.db.one<any>(
+            `SELECT * FROM conversations WHERE context_type = ? AND context_id = ?`,
+            [contextType, contextId],
           );
+          if (conv) {
+            isNew = false;
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
         }
       }
 
-      if (creatorUser) {
-        await this.db.execute(
-          `INSERT IGNORE INTO conversation_participants (conversation_id, user_id, role)
-           VALUES (?, ?, ?)`,
-          [conv.id, creatorUser.id, ParticipantRole.CUSTOMER],
-        );
-      }
+      if (isNew && convId) {
+        const publicId = `ODB-CNV-2026-${String(convId).padStart(6, '0')}`;
+        await this.db.execute('UPDATE conversations SET public_id = ? WHERE id = ?', [publicId, convId]);
 
-      if (creatorUser) {
-        await this.audit.record({
-          actor: creatorUser,
-          action: 'conversation.created',
-          objectType: 'conversation',
-          objectId: conv.id,
-          metadata: { publicId, contextType, contextId },
-        });
-      }
+        conv = await this.db.one<any>('SELECT * FROM conversations WHERE id = ?', [convId]);
 
-      if (initialMessage && creatorUser) {
-        await this.sendMessage(creatorUser, conv.id, { body: initialMessage });
+        // Add resolved participants
+        for (const p of meta.parties) {
+          if (p.userId) {
+            await this.db.execute(
+              `INSERT IGNORE INTO conversation_participants (conversation_id, user_id, role)
+               VALUES (?, ?, ?)`,
+              [conv.id, p.userId, p.role],
+            );
+          }
+        }
+
+        if (creatorUser) {
+          await this.db.execute(
+            `INSERT IGNORE INTO conversation_participants (conversation_id, user_id, role)
+             VALUES (?, ?, ?)`,
+            [conv.id, creatorUser.id, ParticipantRole.CUSTOMER],
+          );
+        }
+
+        if (creatorUser) {
+          await this.audit.record({
+            actor: creatorUser,
+            action: 'conversation.created',
+            objectType: 'conversation',
+            objectId: conv.id,
+            metadata: { publicId, contextType, contextId },
+          });
+        }
+
+        if (initialMessage && creatorUser) {
+          await this.sendMessage(creatorUser, conv.id, { body: initialMessage });
+        }
+      } else if (conv) {
+        // Conversation was created concurrently by another thread; ensure parties are present
+        for (const p of meta.parties) {
+          if (p.userId) {
+            await this.db.execute(
+              `INSERT IGNORE INTO conversation_participants (conversation_id, user_id, role)
+               VALUES (?, ?, ?)`,
+              [conv.id, p.userId, p.role],
+            );
+          }
+        }
       }
     } else {
       // Ensure all current parties are participants

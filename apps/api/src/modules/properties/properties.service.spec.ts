@@ -75,4 +75,61 @@ describe('PropertiesService', () => {
     (db.one as jest.Mock).mockResolvedValue({ id: 1, status: 'PENDING_VERIFICATION' });
     await expect(service.moderate(verifier, 1, 'REJECT')).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('refuses approval of a listing that is still in DRAFT status (D-08)', async () => {
+    (db.one as jest.Mock).mockResolvedValue({ id: 1, status: 'DRAFT' });
+    await expect(service.moderate(verifier, 1, 'APPROVE')).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('approving a PENDING_VERIFICATION listing activates property without auto-verifying checks (D-09)', async () => {
+    (db.one as jest.Mock).mockResolvedValue({ id: 1, status: 'PENDING_VERIFICATION', published_at: null });
+    const result = await service.moderate(verifier, 1, 'APPROVE');
+    expect(result.status).toBe('ACTIVE');
+    expect(db.update).toHaveBeenCalledWith('properties', 1, expect.objectContaining({ status: 'ACTIVE' }));
+    // Verify that property_verifications table was NOT auto-stamped with VERIFIED
+    expect(db.execute).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE property_verifications'), expect.anything());
+  });
+
+  describe('attachImage - D-18 storage key validation', () => {
+    beforeEach(() => {
+      (db.one as jest.Mock).mockImplementation((sql: string) => {
+        if (sql.includes('SELECT * FROM properties')) {
+          return Promise.resolve({ id: 1, listed_by_user_id: 10, status: 'DRAFT' });
+        }
+        if (sql.includes('SELECT COUNT(*)')) {
+          return Promise.resolve({ c: 0 });
+        }
+        return Promise.resolve(null);
+      });
+    });
+
+    it('rejects attachment of private vault or kyc documents with ForbiddenException', async () => {
+      await expect(
+        service.attachImage(owner, 1, 'vault/USR-VICTIM/kyc/passport.pdf'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('rejects attachment outside properties/ namespace with BadRequestException', async () => {
+      await expect(
+        service.attachImage(owner, 1, 'misc/other/image.jpg'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects cross-user property images with ForbiddenException', async () => {
+      // owner.publicId is 'P1', attempting to attach 'properties/OTHER_USER/photo.jpg'
+      await expect(
+        service.attachImage(owner, 1, 'properties/OTHER_USER/photo.jpg'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows attachment of authorized image key belonging to owner prefix', async () => {
+      const res = await service.attachImage(owner, 1, 'properties/P1/photo.jpg');
+      expect(res.storageKey).toBe('properties/P1/photo.jpg');
+      expect(db.insert).toHaveBeenCalledWith(
+        'property_images',
+        expect.objectContaining({ storage_key: 'properties/P1/photo.jpg' }),
+      );
+    });
+  });
 });
+

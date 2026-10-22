@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Request } from 'express';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -95,13 +95,22 @@ export class RentalService {
   // -------------------------------------------------------------- viewings
   async requestViewing(user: AuthUser, dto: CreateViewingDto) {
     const property = await this.activeProperty(dto.propertyId);
+    const scheduledDate = new Date(dto.scheduledFor);
+    if (isNaN(scheduledDate.getTime())) {
+      throw new BadRequestException('Invalid date provided for viewing schedule.');
+    }
+    if (scheduledDate.getTime() < Date.now()) {
+      throw new BadRequestException('Viewing schedule cannot be in the past.');
+    }
+    const formattedDate = scheduledDate.toISOString().slice(0, 19).replace('T', ' ');
+
     const id = await this.db.insert('viewings', {
       property_id: dto.propertyId,
       enquiry_id: dto.enquiryId ?? null,
       tenant_user_id: user.id,
       host_user_id: property.listed_by_user_id,
       mode: dto.mode ?? 'IN_PERSON',
-      scheduled_for: dto.scheduledFor,
+      scheduled_for: formattedDate,
     });
     await this.notify.send(property.listed_by_user_id, 'MEETING_SCHEDULED', {
       title: 'Visit requested',
@@ -121,7 +130,15 @@ export class RentalService {
     if (row.listed_by_user_id !== user.id && row.tenant_user_id !== user.id) {
       throw new ForbiddenException('This visit belongs to another account.');
     }
-    await this.db.update('viewings', id, { status, scheduled_for: scheduledFor });
+    let formattedDate = row.scheduled_for;
+    if (scheduledFor) {
+      const d = new Date(scheduledFor);
+      if (isNaN(d.getTime())) {
+        throw new BadRequestException('Invalid date provided for rescheduled viewing.');
+      }
+      formattedDate = d.toISOString().slice(0, 19).replace('T', ' ');
+    }
+    await this.db.update('viewings', id, { status, scheduled_for: formattedDate });
     await this.notify.send(
       user.id === row.tenant_user_id ? row.listed_by_user_id : row.tenant_user_id,
       'MEETING_SCHEDULED',
@@ -253,6 +270,35 @@ export class RentalService {
     }
 
     const result = await this.db.transaction(async (conn) => {
+      // 1. Lock the property row to serialize decisions on this property
+      const [propRows]: any = await conn.execute(
+        'SELECT id, status FROM properties WHERE id = ? FOR UPDATE',
+        [application.property_id],
+      );
+      if (!propRows.length) {
+        throw new NotFoundException('Property not found.');
+      }
+
+      // 2. Lock and re-verify the application row
+      const [appRows]: any = await conn.execute(
+        'SELECT id, status FROM applications WHERE id = ? FOR UPDATE',
+        [applicationId],
+      );
+      if (!appRows.length || !['SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED'].includes(appRows[0].status)) {
+        throw new ConflictException('This application has already been decided.');
+      }
+
+      // 3. Double-booking check: Ensure no active tenancy exists for this property
+      const [existingActive]: any = await conn.execute(
+        `SELECT id, public_id, stage FROM tenancies WHERE property_id = ? AND stage NOT IN ('CLOSED', 'CANCELLED') LIMIT 1 FOR UPDATE`,
+        [application.property_id],
+      );
+      if (existingActive.length > 0) {
+        throw new ConflictException(
+          `Property already has an active tenancy (${existingActive[0].public_id}) in stage ${existingActive[0].stage}.`,
+        );
+      }
+
       await conn.execute(
         `UPDATE applications SET status = 'ACCEPTED', decided_by = ?, decided_at = NOW(), decision_note = ?
           WHERE id = ?`,
@@ -287,8 +333,8 @@ export class RentalService {
       );
       const tenancyId = tenancyRes.insertId as number;
 
-      const [seq]: any = await conn.execute('SELECT COUNT(*) AS c FROM legal_cases');
-      const caseNumber = formatReference('LGL', (seq[0].c ?? 0) + 1);
+      const nextSeq = await this.db.nextSequence('LGL', conn as any);
+      const caseNumber = formatReference('LGL', nextSeq);
       await conn.execute(
         `INSERT INTO legal_cases (public_id, case_number, tenancy_id, case_type, status, jurisdiction)
          VALUES (?, ?, ?, 'NEW_AGREEMENT', 'QUEUED', ?)`,
@@ -1155,8 +1201,8 @@ export class RentalService {
     const property = await this.db.one<any>('SELECT * FROM properties WHERE id = ?', [tenancy.property_id]);
 
     const result = await this.db.transaction(async (conn) => {
-      const [seq]: any = await conn.execute('SELECT COUNT(*) AS c FROM legal_cases');
-      const caseNumber = formatReference('LGL', (seq[0].c ?? 0) + 1);
+      const nextSeq = await this.db.nextSequence('LGL', conn as any);
+      const caseNumber = formatReference('LGL', nextSeq);
       const casePublicId = newPublicId();
 
       const [caseRes]: any = await conn.execute(
@@ -1509,8 +1555,8 @@ export class RentalService {
 
     await this.db.transaction(async (conn) => {
       if (refundAmount > 0) {
-        const [seq]: any = await conn.execute('SELECT COUNT(*) AS c FROM payments');
-        const refCode = formatReference('PAY', (seq[0].c ?? 0) + 1);
+        const nextSeq = await this.db.nextSequence('PAY', conn as any);
+        const refCode = formatReference('PAY', nextSeq);
         const [payRes]: any = await conn.execute(
           `INSERT INTO payments (public_id, reference_code, payer_user_id, payee_user_id, tenancy_id, property_id,
              purpose, amount, tax_amount, total_amount, status, due_date, notes)
@@ -1644,8 +1690,8 @@ export class RentalService {
 
     const againstUserId = user.id === tenancy.owner_user_id ? tenancy.tenant_user_id : tenancy.owner_user_id;
 
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM disputes');
-    const caseNumber = formatReference('DSP', (seq?.c ?? 0) + 1);
+    const nextSeq = await this.db.nextSequence('DSP');
+    const caseNumber = formatReference('DSP', nextSeq);
 
     const disputeSummary = dto.summary || (dto as any).reason || 'Deposit settlement dispute';
     const disputeDetail = dto.detail || (dto as any).reason || null;

@@ -168,6 +168,78 @@ export interface StorageDriver {
   exists(key: string): Promise<boolean>;
 }
 
+/**
+ * Safely escapes characters for XML/SVG text nodes and attributes.
+ * Escapes ampersands (&) first without double-escaping already-escaped XML entities.
+ * Escapes <, >, ", and '.
+ */
+export function escapeXml(str: string): string {
+  if (!str) return '';
+  return str
+    // Escape '&' only if it is not already starting a valid XML entity reference
+    .replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+export function generateFallbackSvg(key: string, customTitle?: string): string {
+  const tag = (key || '').toUpperCase();
+  let title = customTitle || 'Property Photograph';
+  let themeColor = '#1d4337';
+  let accentColor = '#ca8a04';
+
+  if (!customTitle) {
+    if (tag.includes('KITCHEN')) {
+      themeColor = '#1e3a5f';
+      accentColor = '#f59e0b';
+      title = 'Modular Kitchen';
+    } else if (tag.includes('BEDROOM')) {
+      themeColor = '#3b2d54';
+      accentColor = '#ec4899';
+      title = 'Master Bedroom';
+    } else if (tag.includes('BALCONY')) {
+      themeColor = '#155e75';
+      accentColor = '#10b981';
+      title = 'Balcony View';
+    } else {
+      themeColor = '#1e293b';
+      accentColor = '#0ea5e9';
+      title = 'Living Room & Lounge';
+    }
+  }
+
+  const safeTitle = escapeXml(title);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${themeColor}"/>
+          <stop offset="50%" stop-color="#0f172a"/>
+          <stop offset="100%" stop-color="#020617"/>
+        </linearGradient>
+      </defs>
+      <rect width="800" height="600" fill="url(#bg)"/>
+      <g transform="translate(80, 60)" opacity="0.95">
+        <polygon points="0,400 640,400 560,320 80,320" fill="#ffffff" fill-opacity="0.04"/>
+        <rect x="80" y="40" width="480" height="280" fill="#ffffff" fill-opacity="0.02" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1.5" rx="4"/>
+        <rect x="130" y="70" width="160" height="180" fill="#ffffff" fill-opacity="0.08" stroke="${accentColor}" stroke-opacity="0.5" stroke-width="2" rx="2"/>
+        <rect x="340" y="90" width="170" height="120" fill="${accentColor}" fill-opacity="0.15" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1.5" rx="2"/>
+        <circle cx="425" cy="150" r="35" fill="${accentColor}" fill-opacity="0.3"/>
+      </g>
+      <g transform="translate(400, 480)" text-anchor="middle">
+        <rect x="-170" y="-45" width="340" height="75" rx="10" fill="#0f172a" fill-opacity="0.9" stroke="${accentColor}" stroke-width="1.5"/>
+        <text y="-12" fill="#ffffff" font-family="system-ui, sans-serif" font-size="20" font-weight="600">${safeTitle}</text>
+        <text y="18" fill="${accentColor}" font-family="monospace" font-size="12" font-weight="600">ODIBRICK VERIFIED MEDIA</text>
+      </g>
+      <g transform="translate(40, 40)">
+        <rect width="120" height="30" rx="6" fill="#000000" fill-opacity="0.65" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1"/>
+        <text x="60" y="20" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="700">ODIBRICK</text>
+      </g>
+    </svg>`;
+}
+
 export class LocalDriver implements StorageDriver {
   private readonly roots: string[];
 
@@ -215,13 +287,7 @@ export class LocalDriver implements StorageDriver {
         key.includes('photo-') ||
         key.startsWith('img_')
       ) {
-        const fallbackSvg = this.generateFallbackSvg(key);
-        try {
-          await fs.mkdir(path.dirname(target), { recursive: true });
-          await fs.writeFile(target, Buffer.from(fallbackSvg, 'utf8'));
-        } catch {
-          // ignore cache write error
-        }
+        const fallbackSvg = generateFallbackSvg(key);
         return Buffer.from(fallbackSvg, 'utf8');
       }
       throw new NotFoundException('File not found in storage.');
@@ -236,58 +302,6 @@ export class LocalDriver implements StorageDriver {
   async exists(key: string): Promise<boolean> {
     const target = this.full(key);
     return fsSync.existsSync(target);
-  }
-
-  private generateFallbackSvg(key: string): string {
-    const tag = key.toUpperCase();
-    let title = 'Property Photograph';
-    let themeColor = '#1d4337';
-    let accentColor = '#ca8a04';
-
-    if (tag.includes('KITCHEN')) {
-      themeColor = '#1e3a5f';
-      accentColor = '#f59e0b';
-      title = 'Modular Kitchen';
-    } else if (tag.includes('BEDROOM')) {
-      themeColor = '#3b2d54';
-      accentColor = '#ec4899';
-      title = 'Master Bedroom';
-    } else if (tag.includes('BALCONY')) {
-      themeColor = '#155e75';
-      accentColor = '#10b981';
-      title = 'Balcony View';
-    } else {
-      themeColor = '#1e293b';
-      accentColor = '#0ea5e9';
-      title = 'Living Room & Lounge';
-    }
-
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
-      <defs>
-        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="${themeColor}"/>
-          <stop offset="50%" stop-color="#0f172a"/>
-          <stop offset="100%" stop-color="#020617"/>
-        </linearGradient>
-      </defs>
-      <rect width="800" height="600" fill="url(#bg)"/>
-      <g transform="translate(80, 60)" opacity="0.95">
-        <polygon points="0,400 640,400 560,320 80,320" fill="#ffffff" fill-opacity="0.04"/>
-        <rect x="80" y="40" width="480" height="280" fill="#ffffff" fill-opacity="0.02" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1.5" rx="4"/>
-        <rect x="130" y="70" width="160" height="180" fill="#ffffff" fill-opacity="0.08" stroke="${accentColor}" stroke-opacity="0.5" stroke-width="2" rx="2"/>
-        <rect x="340" y="90" width="170" height="120" fill="${accentColor}" fill-opacity="0.15" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1.5" rx="2"/>
-        <circle cx="425" cy="150" r="35" fill="${accentColor}" fill-opacity="0.3"/>
-      </g>
-      <g transform="translate(400, 480)" text-anchor="middle">
-        <rect x="-170" y="-45" width="340" height="75" rx="10" fill="#0f172a" fill-opacity="0.9" stroke="${accentColor}" stroke-width="1.5"/>
-        <text y="-12" fill="#ffffff" font-family="system-ui, sans-serif" font-size="20" font-weight="600">${title}</text>
-        <text y="18" fill="${accentColor}" font-family="monospace" font-size="12" font-weight="600">ODIBRICK VERIFIED MEDIA</text>
-      </g>
-      <g transform="translate(40, 40)">
-        <rect width="120" height="30" rx="6" fill="#000000" fill-opacity="0.65" stroke="#ffffff" stroke-opacity="0.2" stroke-width="1"/>
-        <text x="60" y="20" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="700">ODIBRICK</text>
-      </g>
-    </svg>`;
   }
 }
 
@@ -370,6 +384,16 @@ export class S3Driver implements StorageDriver {
         err.name === 'NotFound' ||
         err.$metadata?.httpStatusCode === 404
       ) {
+        if (
+          key.startsWith('demo/properties') ||
+          key.startsWith('properties') ||
+          key.startsWith('prop') ||
+          key.includes('photo-') ||
+          key.startsWith('img_')
+        ) {
+          const fallbackSvg = generateFallbackSvg(key);
+          return Buffer.from(fallbackSvg, 'utf8');
+        }
         throw new NotFoundException('File not found in S3 storage.');
       }
       throw err;
@@ -421,11 +445,11 @@ export class StorageService {
     private readonly audit: AuditService,
     private readonly notify: NotificationsService,
   ) {
-    this.driverName = this.config.get<string>('storage.driver') === 'S3' ? 'S3' : 'LOCAL';
+    this.driverName = (this.config.get<string>('storage.driver') || 'LOCAL').toUpperCase() === 'S3' ? 'S3' : 'LOCAL';
 
     if (this.driverName === 'S3') {
       const bucket = this.config.get<string>('storage.s3Bucket');
-      const region = this.config.get<string>('storage.awsRegion') || 'ap-south-1';
+      const region = this.config.get<string>('storage.awsRegion') || 'auto';
       const accessKeyId = this.config.get<string>('storage.awsAccessKeyId');
       const secretAccessKey = this.config.get<string>('storage.awsSecretAccessKey');
       const endpoint = this.config.get<string>('storage.s3Endpoint');

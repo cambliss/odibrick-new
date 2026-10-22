@@ -237,10 +237,7 @@ export class RiskService {
       }
     }
 
-    const nextNumRow = await this.db.one<{ maxId: number }>(
-      'SELECT IFNULL(MAX(id), 0) + 1 AS maxId FROM risk_cases',
-    );
-    const seq = nextNumRow?.maxId || 1;
+    const seq = await this.db.nextSequence('RSK');
     const caseNumber = `ODB-RSK-2026-${String(seq).padStart(6, '0')}`;
     const publicId = newPublicId();
 
@@ -429,7 +426,7 @@ export class RiskService {
               u.full_name AS subject_name, u.email AS subject_email,
               au.full_name AS assigned_name,
               ru.full_name AS resolved_by_name,
-              p.title AS property_title, p.property_code,
+              p.title AS property_title, p.public_id AS property_code,
               pay.reference_code AS payment_reference, pay.total_amount AS payment_amount
        FROM risk_cases rc
        LEFT JOIN users u ON u.id = rc.subject_user_id
@@ -856,8 +853,8 @@ export class RiskService {
 
   async getSuspiciousListings(): Promise<SuspiciousListingItem[]> {
     const rows = await this.db.query<any>(
-      `SELECT p.id AS propertyId, p.property_code AS propertyCode, p.title, p.city, p.locality,
-              p.monthly_rent AS monthlyRent, p.status, p.created_at AS createdAt,
+      `SELECT p.id AS propertyId, p.public_id AS propertyCode, p.title, p.city, p.locality,
+              p.rent_amount AS monthlyRent, p.status, p.created_at AS createdAt,
               u.id AS ownerId, u.full_name AS ownerName
        FROM properties p
        JOIN users u ON u.id = p.owner_id

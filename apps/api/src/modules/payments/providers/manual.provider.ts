@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { CollectionOrder, PaymentProvider, RefundResult, VerifiedPayment } from './payment-provider.interface';
 
@@ -31,10 +31,14 @@ export class ManualPaymentProvider implements PaymentProvider {
   }
 
   async verifyCallback(): Promise<VerifiedPayment> {
-    throw new Error('The manual provider has no callback. Payments are confirmed by an operator.');
+    throw new BadRequestException(
+      'The manual payment provider does not accept automated webhooks. Manual payments must be recorded and confirmed by an authorized operator.',
+    );
   }
 
   async refund(): Promise<RefundResult> {
-    throw new Error('Refunds under the manual provider are processed by bank transfer and recorded by an operator.');
+    throw new BadRequestException(
+      'Refunds under the manual provider are processed by bank transfer and recorded by an operator.',
+    );
   }
 }

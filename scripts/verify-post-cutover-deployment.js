@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PROD_BASE = 'https://odibrick-new-backend.onrender.com';
+const PROD_BASE = process.env.TARGET_API_URL || 'http://localhost:4000';
 
 async function verifyDeployment() {
   console.log('========================================================================');
@@ -32,7 +32,7 @@ async function verifyDeployment() {
   }
 
   // Helper login
-  async function login(email, password = 'OdibrickDemo2026') {
+  async function login(email, password = process.env.DEMO_PASSWORD || 'OdibrickDemo2026') {
     try {
       const res = await fetch(`${PROD_BASE}/api/auth/login`, {
         method: 'POST',
@@ -41,7 +41,10 @@ async function verifyDeployment() {
       });
       if (!res.ok) return { ok: false, status: res.status };
       const data = await res.json();
-      return { ok: true, status: res.status, token: data.accessToken, user: data.user };
+      const setCookie = res.headers ? (typeof res.headers.get === 'function' ? res.headers.get('set-cookie') : res.headers['set-cookie']) : null;
+      const cookieToken = setCookie ? (String(setCookie).match(/odb_at=([^;]+)/)?.[1]) : null;
+      const token = data.accessToken || cookieToken;
+      return { ok: true, status: res.status, token, user: data.user };
     } catch (e) {
       return { ok: false, status: 0, error: e.message };
     }
@@ -54,7 +57,7 @@ async function verifyDeployment() {
   if (adminLogin.ok) {
     adminToken = adminLogin.token;
     console.log('[TC-02A] Super Admin Auth: SUCCESS (token suppressed)');
-    
+
     // Check KPIs
     try {
       const kpisRes = await fetch(`${PROD_BASE}/api/admin/kpis`, {

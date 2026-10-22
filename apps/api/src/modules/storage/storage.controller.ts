@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -25,19 +26,38 @@ import {
   VerifyDocumentDto,
 } from './storage.dto';
 
+const ALLOWED_UPLOAD_FOLDERS = new Set(['properties', 'documents', 'profiles', 'misc', 'inspections']);
+const MAX_UPLOAD_SIZE_BYTES = 15_728_640; // 15 MB
+
 @Controller()
 export class StorageController {
   constructor(private readonly storage: StorageService) {}
 
   /** Raw file upload: stores file and returns storageKey & checksum */
   @Post('uploads')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 250_000_000 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_SIZE_BYTES } }))
   async upload(
     @CurrentUser() user: AuthUser,
     @UploadedFile() file: Express.Multer.File,
     @Body('folder') folder = 'misc',
   ) {
-    const stored = await this.storage.store(file, `${folder}/${user.publicId}`);
+    if (!file || !file.buffer) {
+      throw new BadRequestException('A file is required for upload.');
+    }
+
+    const cleanFolder = (folder || 'misc').trim();
+    if (
+      cleanFolder.includes('..') ||
+      cleanFolder.includes('/') ||
+      cleanFolder.includes('\\') ||
+      !ALLOWED_UPLOAD_FOLDERS.has(cleanFolder)
+    ) {
+      throw new BadRequestException(
+        `Invalid upload folder "${folder}". Permitted folders: ${Array.from(ALLOWED_UPLOAD_FOLDERS).join(', ')}`,
+      );
+    }
+
+    const stored = await this.storage.store(file, `${cleanFolder}/${user.publicId}`);
     return {
       storageKey: stored.storageKey,
       sizeBytes: stored.sizeBytes,
@@ -47,13 +67,17 @@ export class StorageController {
 
   /** Create/register document in the governance vault */
   @Post('documents')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25_000_000 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_SIZE_BYTES } }))
   async createDocument(
     @CurrentUser() user: AuthUser,
     @UploadedFile() file: Express.Multer.File,
     @Body() body: CreateDocumentDto,
     @Req() req: Request,
   ) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('A file is required to create a document.');
+    }
+
     const category = (body.category || 'OTHER') as DocumentCategory;
     const stored = await this.storage.store(
       file,
@@ -251,10 +275,14 @@ export class StorageController {
     }
 
     // Direct access to private vault, kyc or legal agreements is prohibited via public storage
+    const lowerKey = normalizedKey.toLowerCase();
     if (
-      normalizedKey.startsWith('vault/') ||
-      normalizedKey.startsWith('kyc/') ||
-      normalizedKey.startsWith('agreements/')
+      lowerKey.startsWith('vault/') ||
+      lowerKey.includes('/vault/') ||
+      lowerKey.startsWith('kyc/') ||
+      lowerKey.includes('/kyc/') ||
+      lowerKey.startsWith('agreements/') ||
+      lowerKey.includes('/agreements/')
     ) {
       res.status(403).json({ statusCode: 403, message: 'Direct access to protected vault files is prohibited.' });
       return;

@@ -195,10 +195,10 @@ export class LegalService {
     }
 
     if (!agreement) {
-      const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM agreements');
+      const seq = await this.db.nextSequence('AGR');
       const id = await this.db.insert('agreements', {
         public_id: newPublicId(),
-        agreement_number: formatReference('AGR', (seq?.c ?? 0) + 1),
+        agreement_number: formatReference('AGR', seq),
         tenancy_id: legalCase.tenancy_id,
         legal_case_id: caseId,
         agreement_type: dto.agreementType ?? (legalCase.case_type === 'RENEWAL' ? 'RENEWAL' : 'LEAVE_AND_LICENSE'),

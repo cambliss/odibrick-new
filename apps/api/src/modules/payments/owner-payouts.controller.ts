@@ -29,6 +29,7 @@ export class OwnerPayoutsController {
   constructor(private readonly payouts: OwnerPayoutsService) {}
 
   @Get()
+  @RequirePermissions('payment.manage')
   list(@CurrentUser() user: AuthUser, @Query() query: PayoutQueryDto) {
     return this.payouts.listPayouts(user, query);
   }
@@ -50,6 +51,7 @@ export class OwnerPayoutsController {
   }
 
   @Get(':id')
+  @RequirePermissions('payment.manage')
   getOne(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.payouts.getPayout(user, id);
   }

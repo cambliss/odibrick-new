@@ -33,10 +33,10 @@ export class OperationsService {
       throw new BadRequestException('Maintenance requests can only be raised for active tenancies.');
     }
 
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM maintenance_requests');
+    const seq = await this.db.nextSequence('MNT');
     const id = await this.db.insert('maintenance_requests', {
       public_id: newPublicId(),
-      ticket_number: formatReference('MNT', (seq?.c ?? 0) + 1),
+      ticket_number: formatReference('MNT', seq),
       property_id: tenancy.property_id,
       tenancy_id: tenancy.id,
       raised_by: user.id,
@@ -694,12 +694,13 @@ export class OperationsService {
 
     const againstUserId = user.id === tenancy.tenant_user_id ? tenancy.owner_user_id : tenancy.tenant_user_id;
 
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM disputes');
+    const seq = await this.db.nextSequence('DSP');
+    const caseNumber = formatReference('DSP', seq);
     const initialStatus = dto.initialEvidence ? 'EVIDENCE_SUBMITTED' : 'OPEN';
 
     const id = await this.db.insert('disputes', {
       public_id: newPublicId(),
-      case_number: formatReference('DSP', (seq?.c ?? 0) + 1),
+      case_number: caseNumber,
       tenancy_id: tenancy.id,
       raised_by: user.id,
       against_user_id: againstUserId,
@@ -779,7 +780,6 @@ export class OperationsService {
       metadata: { tenancyId: tenancy.id, category: dto.category, amountClaimed: dto.amountClaimed },
     });
 
-    const caseNumber = formatReference('DSP', (seq?.c ?? 0) + 1);
     return { id, caseNumber, status: initialStatus };
   }
 
@@ -1082,11 +1082,11 @@ export class OperationsService {
     let legalCaseId = dispute.legal_case_id;
 
     if (!legalCaseId) {
-      const seq = await this.db.one<{ c: number }>('SELECT COALESCE(MAX(id), 0) AS c FROM legal_cases');
+      const seq = await this.db.nextSequence('LGL');
       const initialLegalStatus = dto.advocateUserId ? 'DOCUMENT_REVIEW' : 'QUEUED';
       legalCaseId = await this.db.insert('legal_cases', {
         public_id: newPublicId(),
-        case_number: formatReference('LGL', (seq?.c ?? 0) + 1),
+        case_number: formatReference('LGL', seq),
         tenancy_id: dispute.tenancy_id,
         case_type: 'DISPUTE',
         status: initialLegalStatus,
@@ -1462,10 +1462,10 @@ export class OperationsService {
 
   // --------------------------------------------------------------- support
   async createTicket(user: AuthUser, dto: CreateTicketDto) {
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM support_tickets');
+    const seq = await this.db.nextSequence('SUP');
     const id = await this.db.insert('support_tickets', {
       public_id: newPublicId(),
-      ticket_number: formatReference('SUP', (seq?.c ?? 0) + 1),
+      ticket_number: formatReference('SUP', seq),
       user_id: user.id,
       property_id: dto.propertyId ?? null,
       tenancy_id: dto.tenancyId ?? null,

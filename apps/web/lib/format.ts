@@ -53,3 +53,23 @@ export const propertyHref = (
   if (!trimmed) return null;
   return trimmed.startsWith('india/') ? `/${trimmed}` : `/india/${trimmed}`;
 };
+
+/** Safely serializes data to JSON for inclusion inside an HTML <script> tag. Prevents XSS / script breakout. */
+export const safeJsonLd = (data: unknown): string =>
+  JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+
+/** Escapes special HTML characters to prevent XSS injection in HTML contexts. */
+export const escapeHtml = (text?: string | null): string => {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};

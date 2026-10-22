@@ -52,10 +52,7 @@ export class OwnerPayoutsService {
    */
   private async generateNextPayoutNumber(prefix = 'ODB'): Promise<string> {
     const year = new Date().getFullYear();
-    const maxRow = await this.db.one<any>(
-      'SELECT COALESCE(MAX(id), 0) AS max_id FROM owner_payouts',
-    );
-    const nextSeq = (maxRow?.max_id || 0) + 1;
+    const nextSeq = await this.db.nextSequence('PAYO');
     const padded = String(nextSeq).padStart(6, '0');
     return `${prefix}-PAYO-${year}-${padded}`;
   }
@@ -397,34 +394,65 @@ export class OwnerPayoutsService {
       notes: dto.notes || '',
     };
 
-    const payoutId = await this.db.insert('owner_payouts', {
-      public_id: publicId,
-      payout_number: payoutNumber,
-      owner_user_id: dto.ownerUserId,
-      payout_account_id: dto.payoutAccountId || preview.payoutAccount?.id || null,
-      period_start: dto.periodStart,
-      period_end: dto.periodEnd,
-      gross_amount: grossAmount,
-      deduction_amount: deductionAmount,
-      net_amount: netAmount,
-      currency: 'INR',
-      status: 'PENDING_REVIEW',
-      reconciliation_status: 'UNRECONCILED',
-      snapshot_data: JSON.stringify(snapshotData),
-      notes: dto.notes || null,
-    });
+    const payoutId = await this.db.transaction(async (conn) => {
+      // Re-verify that none of the selected payment items have been claimed under lock
+      if (paymentIds.length > 0) {
+        const [conflict]: any = await conn.execute(
+          `SELECT opi.payment_id, op.payout_number
+             FROM owner_payout_items opi
+             JOIN owner_payouts op ON op.id = opi.payout_id
+            WHERE opi.payment_id IN (${paymentIds.map(() => '?').join(',')})
+              AND op.status NOT IN ('REJECTED', 'CANCELLED')
+            LIMIT 1 FOR UPDATE`,
+          paymentIds,
+        );
+        if (conflict.length > 0) {
+          throw new BadRequestException(
+            `Payment #${conflict[0].payment_id} is already included in active payout ${conflict[0].payout_number}.`,
+          );
+        }
+      }
 
-    for (const item of selectedLineItems) {
-      await this.db.insert('owner_payout_items', {
-        payout_id: payoutId,
-        payment_id: item.paymentId || null,
-        item_type: item.itemType,
-        direction: item.direction,
-        amount: item.amount,
-        description: item.description,
-        reference_code: item.referenceCode || null,
-      });
-    }
+      const [res]: any = await conn.execute(
+        `INSERT INTO owner_payouts (
+          public_id, payout_number, owner_user_id, payout_account_id, period_start, period_end,
+          gross_amount, deduction_amount, net_amount, currency, status, reconciliation_status,
+          snapshot_data, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'INR', 'PENDING_REVIEW', 'UNRECONCILED', ?, ?)`,
+        [
+          publicId,
+          payoutNumber,
+          dto.ownerUserId,
+          dto.payoutAccountId || preview.payoutAccount?.id || null,
+          dto.periodStart,
+          dto.periodEnd,
+          grossAmount,
+          deductionAmount,
+          netAmount,
+          JSON.stringify(snapshotData),
+          dto.notes || null,
+        ],
+      );
+      const newPayoutId = res.insertId as number;
+
+      for (const item of selectedLineItems) {
+        await conn.execute(
+          `INSERT INTO owner_payout_items (payout_id, payment_id, item_type, direction, amount, description, reference_code)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newPayoutId,
+            item.paymentId || null,
+            item.itemType,
+            item.direction,
+            item.amount,
+            item.description,
+            item.referenceCode || null,
+          ],
+        );
+      }
+
+      return newPayoutId;
+    });
 
     await this.audit.record({
       actor: user,

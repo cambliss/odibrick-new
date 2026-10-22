@@ -105,8 +105,11 @@ async function login(email, password = PASSWORD, retries = 3) {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
-    if (res.ok && res.data?.accessToken) {
-      return { token: res.data.accessToken, user: res.data.user, status: res.status };
+    const setCookie = res.headers ? (typeof res.headers.get === 'function' ? res.headers.get('set-cookie') : res.headers['set-cookie']) : null;
+    const cookieToken = setCookie ? (String(setCookie).match(/odb_at=([^;]+)/)?.[1]) : null;
+    const token = res.data?.accessToken || cookieToken;
+    if (res.ok && token) {
+      return { token, user: res.data?.user, status: res.status };
     }
     if (res.status === 429 && i < retries) {
       await sleep(1200 * (i + 1));

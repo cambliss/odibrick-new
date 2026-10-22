@@ -191,6 +191,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Generates the next atomic sequence number for a named sequence.
+   * Concurrency-safe across all threads and connections using MySQL row-level locking.
+   */
+  async nextSequence(sequenceName: string, conn?: PoolConnection): Promise<number> {
+    const runner = conn || this.pool;
+    await runner.execute(
+      `INSERT INTO reference_sequences (sequence_name, current_value)
+       VALUES (?, 1)
+       ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`,
+      [sequenceName],
+    );
+    const [rows]: any = await runner.execute('SELECT LAST_INSERT_ID() AS next_val');
+    return Number(rows[0]?.next_val || 1);
+  }
+
   get raw(): Pool {
     return this.pool;
   }

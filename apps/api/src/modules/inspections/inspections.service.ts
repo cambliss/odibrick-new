@@ -48,7 +48,7 @@ export class InspectionsService {
     }
     if (existing) return { id: existing.id, status: 'DRAFT', resumed: true };
 
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM inspections');
+    const seq = await this.db.nextSequence('CR');
     const compareWith =
       kind === 'MOVE_OUT'
         ? await this.db.one<any>(
@@ -59,7 +59,7 @@ export class InspectionsService {
 
     const id = await this.db.insert('inspections', {
       public_id: newPublicId(),
-      report_number: formatReference('CR', (seq?.c ?? 0) + 1),
+      report_number: formatReference('CR', seq),
       property_id: tenancy.property_id,
       tenancy_id: tenancy.id,
       kind,

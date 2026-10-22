@@ -9,7 +9,7 @@ import { Badge, Card, DataRow } from '@/components/ui';
 import { PropertyGallery } from './property-gallery';
 import { PropertyActions } from './property-actions';
 import { serverApi, serverApiOrNull, ApiError } from '@/lib/api';
-import { inr, shortDate, titleCase } from '@/lib/format';
+import { inr, shortDate, titleCase, safeJsonLd } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,7 +118,7 @@ export default async function PropertyPage({ params }: { params: { slug: string[
   return (
     <>
       <SiteHeader />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
 
       <main className="mx-auto max-w-[1180px] px-5 py-8">
         <nav aria-label="Breadcrumb" className="font-mono text-[11px] uppercase tracking-wider text-muted">

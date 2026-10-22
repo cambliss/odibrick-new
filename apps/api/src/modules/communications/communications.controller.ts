@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -44,10 +45,15 @@ export class CommunicationsController {
   @RequirePermissions('conversation.read')
   getByContext(
     @CurrentUser() user: AuthUser,
-    @Param('contextType') contextType: ConversationContextType,
+    @Param('contextType') contextType: string,
     @Param('contextId', ParseIntPipe) contextId: number,
   ) {
-    return this.coms.getOrCreateConversation(contextType, contextId, undefined, undefined, user);
+    if (!Object.values(ConversationContextType).includes(contextType as ConversationContextType)) {
+      throw new BadRequestException(
+        `Invalid contextType "${contextType}". Supported values: ${Object.values(ConversationContextType).join(', ')}.`,
+      );
+    }
+    return this.coms.getOrCreateConversation(contextType as ConversationContextType, contextId, undefined, undefined, user);
   }
 
   @Get('conversations/:id')

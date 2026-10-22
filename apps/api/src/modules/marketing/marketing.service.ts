@@ -74,13 +74,13 @@ export class MarketingService {
       this.db.one<any>('SELECT id FROM builders WHERE user_id = ?', [user.id]),
     ]);
 
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM marketing_orders');
+    const seq = await this.db.nextSequence('MKT');
     const amount = Number(pkg.price);
     const tax = Number((amount * Number(pkg.tax_rate) / 100).toFixed(2));
 
     const orderId = await this.db.insert('marketing_orders', {
       public_id: newPublicId(),
-      order_number: formatReference('MKT', (seq?.c ?? 0) + 1),
+      order_number: formatReference('MKT', seq),
       package_id: pkg.id,
       buyer_user_id: user.id,
       agent_id: agent?.id ?? null,

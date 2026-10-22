@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { Badge, Button, Card, CardHeader, ErrorNote, StatusChip } from '@/components/ui';
 import { Seal } from '@/components/verification-seal';
-import { inr, shortDate, titleCase } from '@/lib/format';
+import { inr, shortDate, titleCase, escapeHtml } from '@/lib/format';
 
 export type MasterClause = {
   id: number;
@@ -262,41 +262,46 @@ export function AgreementDrafter({
     setCustomClauseBody('');
   }
 
-  // Generate HTML for the complete agreement preview
+  // Generate HTML for the complete agreement preview and save payload
   const generatedHtml = useMemo(() => {
     const clausesHtml = activeClauses
       .map(
         (c, idx) =>
           `<div class="clause-block" style="margin-bottom: 1.25rem;">
-            <p style="font-weight: 600; margin-bottom: 0.25rem;">Clause ${idx + 1}. ${c.title}</p>
-            <p style="line-height: 1.6; color: #1e293b;">${c.body}</p>
+            <p style="font-weight: 600; margin-bottom: 0.25rem;">Clause ${idx + 1}. ${escapeHtml(c.title)}</p>
+            <p style="line-height: 1.6; color: #1e293b;">${escapeHtml(c.body)}</p>
           </div>`,
       )
       .join('\n');
 
+    const address = [legalCase.property_title, legalCase.address_line1, legalCase.locality, legalCase.city, legalCase.state, legalCase.pincode]
+      .filter(Boolean)
+      .map((s) => escapeHtml(s))
+      .join(', ');
+
     return `
       <div class="agreement-document">
         <h2 style="text-align: center; font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem;">
-          ${agreementType.replace(/_/g, ' ')} AGREEMENT
+          ${escapeHtml(agreementType.replace(/_/g, ' '))} AGREEMENT
         </h2>
         <p style="text-align: center; font-size: 0.875rem; color: #64748b; margin-bottom: 1.5rem;">
-          Jurisdiction: ${legalCase.jurisdiction ?? (legalCase.state ? `${legalCase.state} Tenancy Law` : 'State Tenancy Act')}
+          Jurisdiction: ${escapeHtml(legalCase.jurisdiction ?? (legalCase.state ? `${legalCase.state} Tenancy Law` : 'State Tenancy Act'))}
         </p>
 
         <p style="line-height: 1.6; margin-bottom: 1rem;">
-          This <strong>${titleCase(agreementType)} Agreement</strong> is made and entered into on this 
+          This <strong>${escapeHtml(titleCase(agreementType))} Agreement</strong> is made and entered into on this 
           <strong>${effectiveFrom ? shortDate(effectiveFrom) : '____'}</strong>, by and between:
         </p>
 
         <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px;">
-          <p><strong>1. LICENSOR (OWNER):</strong> ${legalCase.owner_name} (${legalCase.owner_email})</p>
-          <p style="margin-top: 0.25rem;"><strong>2. LICENSEE (TENANT):</strong> ${legalCase.tenant_name} (${legalCase.tenant_email})</p>
+          <p><strong>1. LICENSOR (OWNER):</strong> ${escapeHtml(legalCase.owner_name)} (${escapeHtml(legalCase.owner_email)})</p>
+          <p style="margin-top: 0.25rem;"><strong>2. LICENSEE (TENANT):</strong> ${escapeHtml(legalCase.tenant_name)} (${escapeHtml(legalCase.tenant_email)})</p>
         </div>
 
         <p style="line-height: 1.6; margin-bottom: 1.5rem;">
           WHEREAS the Licensor is the lawful owner of the residential property situated at:
           <br/>
-          <strong>${legalCase.property_title}, ${legalCase.address_line1 ? `${legalCase.address_line1}, ` : ''}${legalCase.locality}, ${legalCase.city}${legalCase.state ? `, ${legalCase.state}` : ''}${legalCase.pincode ? ` - ${legalCase.pincode}` : ''}</strong>
+          <strong>${address}</strong>
           <br/>
           and has agreed to grant license to the Licensee on the following agreed terms and covenants:
         </p>
@@ -949,11 +954,54 @@ export function AgreementDrafter({
               ) : null}
             </div>
 
-            {/* Document Content */}
-            <div
-              className="prose prose-slate max-w-none text-[14px] leading-relaxed text-slate-800"
-              dangerouslySetInnerHTML={{ __html: generatedHtml }}
-            />
+            {/* Document Content - Rendered with safe React elements (no dangerouslySetInnerHTML sink) */}
+            <div className="prose prose-slate max-w-none text-[14px] leading-relaxed text-slate-800">
+              <div className="agreement-document">
+                <h2 className="text-center text-xl font-bold mb-4 font-serif text-ink">
+                  {agreementType.replace(/_/g, ' ')} AGREEMENT
+                </h2>
+                <p className="text-center text-xs text-muted mb-6 font-sans">
+                  Jurisdiction: {legalCase.jurisdiction ?? (legalCase.state ? `${legalCase.state} Tenancy Law` : 'State Tenancy Act')}
+                </p>
+
+                <p className="leading-relaxed mb-4">
+                  This <strong>{titleCase(agreementType)} Agreement</strong> is made and entered into on this{' '}
+                  <strong>{effectiveFrom ? shortDate(effectiveFrom) : '____'}</strong>, by and between:
+                </p>
+
+                <div className="mb-4 p-3 bg-paper rounded border border-line text-xs font-sans space-y-1">
+                  <p><strong>1. LICENSOR (OWNER):</strong> {legalCase.owner_name} ({legalCase.owner_email})</p>
+                  <p><strong>2. LICENSEE (TENANT):</strong> {legalCase.tenant_name} ({legalCase.tenant_email})</p>
+                </div>
+
+                <p className="leading-relaxed mb-6">
+                  WHEREAS the Licensor is the lawful owner of the residential property situated at:
+                  <br />
+                  <strong>
+                    {[legalCase.property_title, legalCase.address_line1, legalCase.locality, legalCase.city, legalCase.state, legalCase.pincode]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </strong>
+                  <br />
+                  and has agreed to grant license to the Licensee on the following agreed terms and covenants:
+                </p>
+
+                <div className="clauses-container space-y-4">
+                  {activeClauses.map((c, idx) => (
+                    <div key={idx} className="clause-block mb-5">
+                      <p className="font-semibold mb-1 text-ink">Clause {idx + 1}. {c.title}</p>
+                      <p className="leading-relaxed text-slate-700 whitespace-pre-wrap">{c.body}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-8 pt-4 border-t-2 border-line text-center font-sans">
+                  <p className="text-[11px] text-muted uppercase tracking-wider">
+                    Document Generated via Odibrick Legal Verification & Workspace
+                  </p>
+                </div>
+              </div>
+            </div>
           </Card>
         </div>
       </div>

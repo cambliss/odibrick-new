@@ -32,5 +32,6 @@ next-env.d.ts
 # Backups and SQL dumps
 backups/
 *.sql
+!database/migrations/*.sql
 *.sql.gz
 

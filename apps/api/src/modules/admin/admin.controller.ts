@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { PaymentReminderService } from '../payments/payment-reminder.service';
 import { CurrentUser, RequirePermissions } from '../../common/auth/decorators';
@@ -70,15 +70,37 @@ export class AdminController {
   @Get('finance/payment-escalations')
   @RequirePermissions('payment.manage')
   paymentEscalations(
-    @Query('minDaysOverdue') minDays?: number,
+    @Query('minDaysOverdue') minDays?: string,
     @Query('stage') stage?: string,
-    @Query('limit') limit?: number,
+    @Query('limit') limit?: string,
     @Query('asOfDate') asOfDate?: string,
   ) {
+    let parsedLimit: number | undefined;
+    if (limit !== undefined && limit !== null && limit !== '') {
+      const num = Number(limit);
+      if (isNaN(num) || !Number.isInteger(num) || num < 1) {
+        throw new BadRequestException('Query parameter "limit" must be a positive integer.');
+      }
+      parsedLimit = Math.min(100, num);
+    }
+
+    let parsedMinDays: number | undefined;
+    if (minDays !== undefined && minDays !== null && minDays !== '') {
+      const num = Number(minDays);
+      if (isNaN(num) || !Number.isInteger(num) || num < 0) {
+        throw new BadRequestException('Query parameter "minDaysOverdue" must be a non-negative integer.');
+      }
+      parsedMinDays = num;
+    }
+
+    if (asOfDate && isNaN(Date.parse(asOfDate))) {
+      throw new BadRequestException('Query parameter "asOfDate" must be a valid date string.');
+    }
+
     return this.reminderService.getPaymentEscalations({
-      minDaysOverdue: minDays !== undefined && minDays !== null ? Number(minDays) : undefined,
+      minDaysOverdue: parsedMinDays,
       stage,
-      limit: limit ? Number(limit) : undefined,
+      limit: parsedLimit,
       asOfDate,
     });
   }

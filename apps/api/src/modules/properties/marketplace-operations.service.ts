@@ -840,8 +840,7 @@ export class MarketplaceOperationsService {
 
     // 1. Create or retrieve commercial obligation (idempotent via Phase 8 CommercialOperationsService)
     // We use a composite source reference or marketing order sequence
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM listing_promotions');
-    const promoSeq = (seq?.c || 0) + 1;
+    const promoSeq = await this.db.nextSequence('PRM');
     const promotionCode = formatReference('PRM', promoSeq);
 
     // Create commercial obligation
@@ -1129,8 +1128,8 @@ export class MarketplaceOperationsService {
     const endsAt = new Date(Date.now() + durationDays * 86400000);
 
     // Create management override promotion record
-    const seq = await this.db.one<{ c: number }>('SELECT COUNT(*) AS c FROM listing_promotions');
-    const promotionCode = formatReference('PRM-MGT', (seq?.c || 0) + 1);
+    const promoSeq = await this.db.nextSequence('PRM');
+    const promotionCode = formatReference('PRM-MGT', promoSeq);
 
     await this.db.insert('listing_promotions', {
       public_id: newPublicId(),

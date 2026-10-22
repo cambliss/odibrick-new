@@ -228,10 +228,7 @@ export class InvoicesService {
    */
   private async generateNextInvoiceNumber(prefix = 'ODB'): Promise<string> {
     const year = new Date().getFullYear();
-    const maxRow = await this.db.one<any>(
-      'SELECT COALESCE(MAX(id), 0) AS max_id FROM invoices',
-    );
-    const nextSeq = ((maxRow?.max_id || 0) + 1);
+    const nextSeq = await this.db.nextSequence('INV');
     const padded = String(nextSeq).padStart(6, '0');
     return `${prefix}-INV-${year}-${padded}`;
   }
@@ -419,46 +416,65 @@ export class InvoicesService {
     const pdfBuffer = generateInvoicePdfBuffer(pdfData);
     const pdfHash = createHash('sha256').update(pdfBuffer).digest('hex');
 
-    // 10. Persist in Database
-    const invoiceId = await this.db.insert('invoices', {
-      invoice_number: invoiceNumber,
-      user_id: payment.payer_user_id,
-      tenancy_id: payment.tenancy_id || null,
-      payment_id: payment.id,
-      billing_name: customerSnapshot.name,
-      billing_address: customerSnapshot.address || null,
-      gstin: customerSnapshot.placeOfSupply || null,
-      place_of_supply: customerSnapshot.placeOfSupply || null,
-      snapshot_data: JSON.stringify(snapshotData),
-      notes: dto?.notes || null,
-      subtotal: taxCalc.subtotal,
-      cgst: taxCalc.cgst,
-      sgst: taxCalc.sgst,
-      igst: taxCalc.igst,
-      total: taxCalc.total,
-      status: 'PAID', // Payment is already settled
-      issued_on: issuedOn,
-      pdf_hash: pdfHash,
+    // 10. Persist atomically in Database
+    const invoiceId = await this.db.transaction(async (conn) => {
+      // Re-verify under lock in case another request is executing concurrently
+      const [existingRows]: any = await conn.execute(
+        'SELECT id FROM invoices WHERE payment_id = ? LIMIT 1 FOR UPDATE',
+        [payment.id],
+      );
+      if (existingRows.length > 0) {
+        return existingRows[0].id;
+      }
+
+      const [invRes]: any = await conn.execute(
+        `INSERT INTO invoices (
+          invoice_number, user_id, tenancy_id, payment_id, billing_name, billing_address,
+          gstin, place_of_supply, snapshot_data, notes, subtotal, cgst, sgst, igst, total,
+          status, issued_on, pdf_hash
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?)`,
+        [
+          invoiceNumber,
+          payment.payer_user_id,
+          payment.tenancy_id || null,
+          payment.id,
+          customerSnapshot.name,
+          customerSnapshot.address || null,
+          customerSnapshot.placeOfSupply || null,
+          customerSnapshot.placeOfSupply || null,
+          JSON.stringify(snapshotData),
+          dto?.notes || null,
+          taxCalc.subtotal,
+          taxCalc.cgst,
+          taxCalc.sgst,
+          taxCalc.igst,
+          taxCalc.total,
+          issuedOn,
+          pdfHash,
+        ],
+      );
+      const newInvId = invRes.insertId as number;
+
+      for (const line of lineItems) {
+        await conn.execute(
+          `INSERT INTO invoice_lines (invoice_id, description, hsn_sac, quantity, unit_price, tax_rate, line_total)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newInvId,
+            line.description,
+            line.hsnSac,
+            line.quantity,
+            line.unitPrice,
+            line.taxRate,
+            line.lineTotal,
+          ],
+        );
+      }
+
+      await conn.execute('UPDATE payments SET invoice_id = ? WHERE id = ?', [newInvId, payment.id]);
+
+      return newInvId;
     });
-
-    // 11. Insert structured line items in invoice_lines
-    for (const line of lineItems) {
-      await this.db.insert('invoice_lines', {
-        invoice_id: invoiceId,
-        description: line.description,
-        hsn_sac: line.hsnSac,
-        quantity: line.quantity,
-        unit_price: line.unitPrice,
-        tax_rate: line.taxRate,
-        line_total: line.lineTotal,
-      });
-    }
-
-    // 12. Link Payment to Invoice
-    await this.db.execute(
-      'UPDATE payments SET invoice_id = ? WHERE id = ?',
-      [invoiceId, payment.id],
-    );
 
     // 13. Record Audit Event
     await this.audit.record({

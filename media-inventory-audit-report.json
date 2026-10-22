@@ -1,0 +1,153 @@
+{
+  "auditedAt": "2026-10-15T08:16:41.276Z",
+  "totalDiscoveredPhysical": 356,
+  "totalDbReferenced": 213,
+  "dbMatchedCount": 198,
+  "dbMissingCount": 15,
+  "unreferencedPhysicalCount": 158,
+  "caseMismatchCount": 0,
+  "typeDistribution": {
+    "image/jpeg": 276,
+    "application/octet-stream": 3,
+    "image/png": 25,
+    "image/webp": 27,
+    "image/avif": 10,
+    "application/pdf": 6,
+    "image/heif": 3,
+    "image/gif": 3,
+    "image/heic": 3
+  },
+  "missingDbKeys": [
+    {
+      "key": "properties/test_living.jpg",
+      "table": "property_images",
+      "id": 261,
+      "propertyId": 117,
+      "caption": "Living Room",
+      "tag": "LIVING_ROOM"
+    },
+    {
+      "key": "properties/test_kitchen.jpg",
+      "table": "property_images",
+      "id": 263,
+      "propertyId": 117,
+      "caption": "Kitchen",
+      "tag": "KITCHEN"
+    },
+    {
+      "key": "properties/test_balcony.jpg",
+      "table": "property_images",
+      "id": 264,
+      "propertyId": 117,
+      "caption": "Balcony View",
+      "tag": "BALCONY"
+    },
+    {
+      "key": "vault/USR-CUST-001/kyc/fake-aadhaar.pdf",
+      "table": "documents",
+      "id": 21,
+      "publicId": "01M40SDCHXDNT0CV057Q3HDM2W",
+      "category": "KYC",
+      "title": "Customer Aadhaar Card Front & Back"
+    },
+    {
+      "key": "vault/test/prop/sale_deed.pdf",
+      "table": "documents",
+      "id": 23,
+      "publicId": "01M40SDCNJQ8NWFP98V8FMWS8S",
+      "category": "OWNERSHIP",
+      "title": "Property 1 Registered Title Deed"
+    },
+    {
+      "key": "vault/test/expiring.pdf",
+      "table": "documents",
+      "id": 25,
+      "publicId": "01M40SDCP0HN7S4YJZ590AZE87",
+      "category": "OTHER",
+      "title": "Bank Letter Expired"
+    },
+    {
+      "key": "vault/agr/draft.pdf",
+      "table": "documents",
+      "id": 26,
+      "publicId": "01M40SDCQKKG08TGH5GRRRGTYQ",
+      "category": "AGREEMENT",
+      "title": "Draft Agreement Verification"
+    },
+    {
+      "key": "demo/inspections/checkin-1.jpg",
+      "table": "inspection_media",
+      "id": 1,
+      "mediaType": "PHOTO"
+    },
+    {
+      "key": "demo/inspections/checkin-2.jpg",
+      "table": "inspection_media",
+      "id": 2,
+      "mediaType": "PHOTO"
+    },
+    {
+      "key": "demo/inspections/checkin-3.jpg",
+      "table": "inspection_media",
+      "id": 3,
+      "mediaType": "PHOTO"
+    },
+    {
+      "key": "demo/inspections/checkin-4.jpg",
+      "table": "inspection_media",
+      "id": 4,
+      "mediaType": "PHOTO"
+    },
+    {
+      "key": "demo/inspections/checkin-5.jpg",
+      "table": "inspection_media",
+      "id": 5,
+      "mediaType": "PHOTO"
+    },
+    {
+      "key": "demo/inspections/checkin-6.jpg",
+      "table": "inspection_media",
+      "id": 6,
+      "mediaType": "PHOTO"
+    },
+    {
+      "key": "demo/inspections/checkin-7.jpg",
+      "table": "inspection_media",
+      "id": 7,
+      "mediaType": "PHOTO"
+    },
+    {
+      "key": "demo/inspections/checkin-8.jpg",
+      "table": "inspection_media",
+      "id": 8,
+      "mediaType": "PHOTO"
+    }
+  ],
+  "caseMismatches": [],
+  "property56": [
+    {
+      "id": 341,
+      "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/bd1e282e-1a98-4814-86fa-5ef2f6d61c9e.webp",
+      "roomTag": null,
+      "hasPhysicalFile": true
+    },
+    {
+      "id": 342,
+      "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/00181214-716a-4b84-acdf-db0a085ceb80.jpg",
+      "roomTag": null,
+      "hasPhysicalFile": true
+    },
+    {
+      "id": 343,
+      "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/a50bdb9c-b3fc-4052-84ba-e21d707df99c.jpg",
+      "roomTag": null,
+      "hasPhysicalFile": true
+    },
+    {
+      "id": 344,
+      "storageKey": "properties/832FD65C84FDA385716B873A76/2026-10/7db37843-446b-4178-89aa-80b661b2e28c.jpg",
+      "roomTag": null,
+      "hasPhysicalFile": true
+    }
+  ]
+}
