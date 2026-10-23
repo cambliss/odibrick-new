@@ -187,7 +187,7 @@ export default async function DashboardPage() {
                     </div>
 
                     <p className="text-[11px] text-muted italic bg-slate-50 p-2 rounded border border-border/50">
-                      "{rec.explanation}"
+                      &ldquo;{rec.explanation}&rdquo;
                     </p>
                   </div>
 

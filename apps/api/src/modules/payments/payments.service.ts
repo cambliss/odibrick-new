@@ -422,25 +422,21 @@ export class PaymentsService {
         throw new BadRequestException('A transaction with this bank reference has already been recorded for this payment.');
       }
 
-      await this.db.insert('payment_transactions', {
-        payment_id: paymentId,
-        txn_reference: `TXN-${randomToken(8).toUpperCase()}`,
-        direction: 'COLLECTION',
-        provider: 'manual',
-        provider_txn_id: bankRef,
-        method: dto.method ?? 'NEFT',
-        amount: dto.amount ?? Number(payment.total_amount),
-        currency: payment.currency,
-        status: 'SUCCESS',
-        idempotency_key: idemKey,
-      });
-
-      await this.db.update('payments', paymentId, {
-        status: 'PAID',
-        paid_at: new Date(),
-        settlement_status: this.provider.custodial ? 'PENDING' : 'SETTLED',
-        settled_at: this.provider.custodial ? null : new Date(),
-      });
+      const txnReference = `TXN-${randomToken(8).toUpperCase()}`;
+      await conn.execute(
+        `INSERT INTO payment_transactions
+          (payment_id, txn_reference, direction, provider, provider_txn_id, method, amount, currency, status, idempotency_key)
+         VALUES (?, ?, 'COLLECTION', 'manual', ?, ?, ?, ?, 'SUCCESS', ?)`,
+        [
+          paymentId,
+          txnReference,
+          bankRef,
+          dto.method ?? 'NEFT',
+          dto.amount ?? Number(payment.total_amount),
+          payment.currency,
+          idemKey,
+        ],
+      );
 
       const res = await this.applyPaymentSuccess(conn, paymentId, `recorded-by:${user.id}`);
       return res;

@@ -12,6 +12,7 @@ describe('PaymentsService (Security & Settlement Verification)', () => {
   let db: jest.Mocked<Partial<DatabaseService>>;
   let audit: jest.Mocked<Partial<AuditService>>;
   let notify: jest.Mocked<Partial<NotificationsService>>;
+  let mockConn: { execute: jest.Mock };
 
   const payerUser: AuthUser = {
     id: 10,
@@ -49,13 +50,14 @@ describe('PaymentsService (Security & Settlement Verification)', () => {
   };
 
   beforeEach(async () => {
+    mockConn = { execute: jest.fn().mockResolvedValue([[]]) };
     db = {
       one: jest.fn(),
       query: jest.fn().mockResolvedValue([]),
       insert: jest.fn().mockResolvedValue(1),
       update: jest.fn().mockResolvedValue(1),
       execute: jest.fn().mockResolvedValue({ affectedRows: 1, insertId: 1 } as any),
-      transaction: jest.fn(async (fn: any) => fn({ execute: jest.fn().mockResolvedValue([[]]) })),
+      transaction: jest.fn(async (fn: any) => fn(mockConn)),
     };
     audit = {
       record: jest.fn().mockResolvedValue(undefined),
@@ -172,19 +174,14 @@ describe('PaymentsService (Security & Settlement Verification)', () => {
       });
 
       expect(result.status).toBe('PAID');
-      expect(db.insert).toHaveBeenCalledWith(
-        'payment_transactions',
-        expect.objectContaining({
-          payment_id: 5,
-          provider_txn_id: 'HDFC-NEFT-987654321',
-          status: 'SUCCESS',
-        }),
+      expect(mockConn.execute).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO payment_transactions'),
+        expect.arrayContaining([5, 'HDFC-NEFT-987654321', 'NEFT', 25000, 'INR']),
       );
-      expect(db.update).toHaveBeenCalledWith(
-        'payments',
-        5,
+      expect(audit.record).toHaveBeenCalledWith(
         expect.objectContaining({
-          status: 'PAID',
+          action: 'payment.recorded_offline',
+          objectId: 5,
         }),
       );
     });

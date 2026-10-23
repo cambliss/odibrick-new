@@ -13,7 +13,8 @@ const REASONS: Record<string, string> = {
   application: 'You need a verified identity before applying for a home.',
 };
 
-export default async function KycPage({ searchParams }: { searchParams: { reason?: string } }) {
+export default async function KycPage({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
+  const sp = await searchParams;
   const profile = await serverApi<{
     account: { full_name: string };
     kyc?: { status: string; reviewed_at?: string; expires_at?: string };
@@ -31,9 +32,9 @@ export default async function KycPage({ searchParams }: { searchParams: { reason
         </p>
       </div>
 
-      {searchParams.reason && REASONS[searchParams.reason] ? (
+      {sp.reason && REASONS[sp.reason] ? (
         <p className="rounded-card border border-ochre/40 bg-ochre-soft px-5 py-4 text-[15px]">
-          {REASONS[searchParams.reason]}
+          {REASONS[sp.reason]}
         </p>
       ) : null}
 

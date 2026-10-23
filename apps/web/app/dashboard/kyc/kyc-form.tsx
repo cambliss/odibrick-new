@@ -58,6 +58,8 @@ export function KycForm({ defaultName }: { defaultName: string }) {
           id="legalName"
           className="field"
           required
+          aria-invalid={!!error}
+          aria-describedby={error ? 'kyc-error' : undefined}
           value={legalName}
           onChange={(event) => setLegalName(event.target.value)}
         />
@@ -89,11 +91,13 @@ export function KycForm({ defaultName }: { defaultName: string }) {
             id="idNumber"
             className="field"
             required
+            aria-invalid={!!error}
+            aria-describedby={error ? 'kyc-error id-number-hint' : 'id-number-hint'}
             value={idNumber}
             onChange={(event) => setIdNumber(event.target.value)}
             autoComplete="off"
           />
-          <p className="hint">Encrypted before it is stored. Only the last four digits are ever displayed.</p>
+          <p id="id-number-hint" className="hint">Encrypted before it is stored. Only the last four digits are ever displayed.</p>
         </div>
       </div>
 
@@ -105,13 +109,14 @@ export function KycForm({ defaultName }: { defaultName: string }) {
           id="document"
           type="file"
           accept="image/jpeg,image/png,application/pdf"
+          aria-describedby="document-hint"
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           className="field file:mr-3 file:rounded-card file:border-0 file:bg-seal file:px-3 file:py-1.5 file:text-white"
         />
-        <p className="hint">JPEG, PNG or PDF up to 10 MB. Make sure all four corners are visible.</p>
+        <p id="document-hint" className="hint">JPEG, PNG or PDF up to 10 MB. Make sure all four corners are visible.</p>
       </div>
 
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {error ? <ErrorNote id="kyc-error">{error}</ErrorNote> : null}
 
       <Button type="submit" disabled={busy}>
         {busy ? 'Submitting…' : 'Submit for verification'}

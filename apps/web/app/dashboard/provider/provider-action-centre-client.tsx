@@ -109,7 +109,7 @@ export function ProviderActionCentreClient({
                         <span className="text-muted">{shortDate(enq.created_at)}</span>
                       </div>
                       <div className="text-muted font-medium">Property: {enq.property_title}</div>
-                      <p className="text-slate-700 italic">"{enq.message}"</p>
+                      <p className="text-slate-700 italic">&ldquo;{enq.message}&rdquo;</p>
                       <div className="pt-2 flex gap-2">
                         <Link href={`/dashboard/messages`}>
                           <Button variant="secondary" size="sm" className="text-xs">

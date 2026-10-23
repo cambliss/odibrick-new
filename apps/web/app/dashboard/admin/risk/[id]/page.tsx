@@ -11,11 +11,12 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function AdminRiskCaseDetailPage({ params }: PageProps) {
-  const caseData = await serverApi<any>(`/admin/risk/cases/${params.id}`).catch(() => null);
+  const { id } = await params;
+  const caseData = await serverApi<any>(`/admin/risk/cases/${id}`).catch(() => null);
 
   if (!caseData) {
     notFound();

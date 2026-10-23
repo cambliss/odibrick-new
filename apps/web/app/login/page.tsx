@@ -8,7 +8,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function LoginPage({ searchParams }: { searchParams: { next?: string } }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams;
   return (
     <main className="grid min-h-screen lg:grid-cols-[1fr_1.1fr]">
       {/* left: the pitch, kept short */}
@@ -54,7 +55,7 @@ export default function LoginPage({ searchParams }: { searchParams: { next?: str
           </p>
 
           <div className="mt-8">
-            <LoginForm next={searchParams.next} />
+            <LoginForm next={next} />
           </div>
         </div>
       </section>

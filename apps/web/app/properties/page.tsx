@@ -16,10 +16,11 @@ type SearchResponse = {
 export async function generateMetadata({
   searchParams,
 }: {
-  searchParams: Record<string, string | undefined>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }): Promise<Metadata> {
-  const city = searchParams.city ?? 'India';
-  const type = searchParams.listingType === 'SALE' ? 'for sale' : 'for rent';
+  const sp = await searchParams;
+  const city = sp.city ?? 'India';
+  const type = sp.listingType === 'SALE' ? 'for sale' : 'for rent';
   return {
     title: `Verified homes ${type} in ${city}`,
     description: `Browse verified ${type} listings in ${city} on Odibrick, with lawyer-reviewed agreements and recorded payments.`,
@@ -30,13 +31,14 @@ export async function generateMetadata({
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const sp = await searchParams;
   let results: SearchResponse = { data: [], meta: { page: 1, perPage: 24, total: 0, totalPages: 1 } };
   let failed = false;
 
   try {
-    results = await serverApi<SearchResponse>('/properties', { query: { perPage: 24, ...searchParams } });
+    results = await serverApi<SearchResponse>('/properties', { query: { perPage: 24, ...sp } });
   } catch {
     failed = true;
   }
@@ -44,7 +46,7 @@ export default async function SearchPage({
   const page = results.meta.page;
   const buildPageHref = (target: number) => {
     const params = new URLSearchParams();
-    Object.entries(searchParams).forEach(([key, value]) => {
+    Object.entries(sp).forEach(([key, value]) => {
       if (typeof value === 'string') params.set(key, value);
       else if (Array.isArray(value)) value.forEach((v) => params.append(key, v));
     });
@@ -60,8 +62,8 @@ export default async function SearchPage({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-semibold">
-              {searchParams.listingType === 'SALE' ? 'Homes for sale' : 'Homes for rent'}
-              {searchParams.city ? ` in ${searchParams.city}` : ''}
+              {sp.listingType === 'SALE' ? 'Homes for sale' : 'Homes for rent'}
+              {sp.city ? ` in ${sp.city}` : ''}
             </h1>
             <p className="mt-1 text-sm text-muted">
               {failed

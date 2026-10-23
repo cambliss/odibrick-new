@@ -121,7 +121,7 @@ export function CreateDisputeForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-card border border-alert/30 bg-alert/10 p-4 text-[14px] text-alert">
+        <div id="dispute-form-error" role="alert" aria-live="assertive" className="rounded-card border border-alert/30 bg-alert/10 p-4 text-[14px] text-alert">
           {error}
         </div>
       )}
@@ -136,7 +136,7 @@ export function CreateDisputeForm({
             id="tenancyId"
             value={tenancyId || ''}
             onChange={(e) => setTenancyId(Number(e.target.value))}
-            className="w-full rounded-card border border-line bg-white px-3.5 py-2.5 text-[14px] text-ink focus:border-seal focus:outline-none"
+            className="w-full rounded-card border border-line bg-white px-3.5 py-2.5 text-[14px] text-ink focus:border-seal focus:outline-none focus-visible:ring-2 focus-visible:ring-seal/30"
             required
           >
             {tenancies.map((t) => (
@@ -149,11 +149,13 @@ export function CreateDisputeForm({
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-card text-xs text-amber-800">
             No active tenancies found. If you have a specific tenancy ID, please provide it below:
             <input
+              id="fallbackTenancyId"
+              aria-label="Fallback Tenancy ID"
               type="number"
               value={tenancyId || ''}
               onChange={(e) => setTenancyId(Number(e.target.value))}
               placeholder="Tenancy ID"
-              className="mt-2 w-full rounded-card border border-line bg-white px-3 py-1.5 text-xs text-ink"
+              className="mt-2 w-full rounded-card border border-line bg-white px-3 py-1.5 text-xs text-ink focus:border-seal focus:outline-none focus-visible:ring-2 focus-visible:ring-seal/30"
             />
           </div>
         )}

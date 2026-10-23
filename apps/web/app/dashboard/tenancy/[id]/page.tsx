@@ -87,13 +87,14 @@ type TenancyDetail = {
   timeline: Array<{ event_code: string; title: string; detail?: string; occurred_at: string }>;
 };
 
-export default async function TenancyPage({ params }: { params: { id: string } }) {
+export default async function TenancyPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   let data: TenancyDetail;
   let financials: TenancyFinancialSummary | null = null;
   try {
     const [detailRes, financialRes] = await Promise.all([
-      serverApi<TenancyDetail>(`/tenancies/${params.id}`),
-      serverApi<TenancyFinancialSummary>(`/tenancies/${params.id}/financial-summary`).catch(() => null),
+      serverApi<TenancyDetail>(`/tenancies/${id}`),
+      serverApi<TenancyFinancialSummary>(`/tenancies/${id}/financial-summary`).catch(() => null),
     ]);
     data = detailRes;
     financials = financialRes;

@@ -45,7 +45,8 @@ async function parse<T>(res: Response): Promise<T> {
 /** Server components and route handlers. */
 export async function serverApi<T>(path: string, options: Options = {}): Promise<T> {
   const { headers } = await import('next/headers');
-  const cookie = headers().get('cookie') ?? '';
+  const h = await headers();
+  const cookie = h.get('cookie') ?? '';
   const res = await fetch(buildUrl(INTERNAL, path, options.query), {
     ...options,
     headers: { 'content-type': 'application/json', cookie, ...(options.headers ?? {}) },

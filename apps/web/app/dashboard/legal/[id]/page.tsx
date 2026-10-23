@@ -137,11 +137,12 @@ function getActiveStepIndex(caseStatus: string, agreementStatus?: string): numbe
   return 0;
 }
 
-export default async function LegalCaseDetailPage({ params }: { params: { id: string } }) {
+export default async function LegalCaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   let data: LegalCaseDetailResponse;
 
   try {
-    data = await serverApi<LegalCaseDetailResponse>(`/legal/cases/${params.id}`);
+    data = await serverApi<LegalCaseDetailResponse>(`/legal/cases/${id}`);
   } catch (error) {
     if (error instanceof ApiError && [403, 404].includes(error.status)) notFound();
     throw error;
@@ -666,7 +667,7 @@ export default async function LegalCaseDetailPage({ params }: { params: { id: st
                           {dateTime(m.scheduled_for)} ({m.duration_min}m)
                         </p>
                         {m.agenda ? (
-                          <p className="mt-1 text-[12px] text-muted italic">"{m.agenda}"</p>
+                          <p className="mt-1 text-[12px] text-muted italic">&ldquo;{m.agenda}&rdquo;</p>
                         ) : null}
                       </div>
                       <StatusChip status={m.status} />

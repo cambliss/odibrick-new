@@ -27,12 +27,13 @@ const ROLE_COPY: Record<string, { title: string; body: string }> = {
   },
 };
 
-export default function RegisterPage({
+export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: { role?: string; next?: string };
+  searchParams: Promise<{ role?: string; next?: string }>;
 }) {
-  const role = (searchParams.role ?? 'TENANT').toUpperCase();
+  const sp = await searchParams;
+  const role = (sp.role ?? 'TENANT').toUpperCase();
   const copy = ROLE_COPY[role] ?? ROLE_COPY.TENANT;
 
   return (
@@ -73,7 +74,7 @@ export default function RegisterPage({
           </p>
 
           <div className="mt-8">
-            <RegisterForm defaultRole={role} next={searchParams.next} />
+            <RegisterForm defaultRole={role} next={sp.next} />
           </div>
         </div>
       </section>

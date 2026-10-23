@@ -9,8 +9,18 @@
     "packages/*"
   ],
   "overrides": {
-    "multer": "2.2.0",
-    "postcss": "8.5.22"
+    "multer": "2.5.0",
+    "postcss": "8.5.31",
+    "postcss-selector-parser": "7.1.7",
+    "source-map-js": "1.2.2",
+    "js-yaml": "4.3.2",
+    "lodash": "4.18.1",
+    "next": {
+      "postcss": "8.5.31"
+    },
+    "@angular-devkit/core": {
+      "picomatch": "4.0.7"
+    }
   },
   "engines": {
     "node": "24.x"

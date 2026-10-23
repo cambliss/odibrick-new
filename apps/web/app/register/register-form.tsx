@@ -78,6 +78,8 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
           id="fullName"
           required
           autoComplete="name"
+          aria-invalid={!!error}
+          aria-describedby={error ? 'register-error' : undefined}
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
           className="field"
@@ -94,6 +96,8 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
             type="email"
             required
             autoComplete="email"
+            aria-invalid={!!error}
+            aria-describedby={error ? 'register-error' : undefined}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="field"
@@ -126,11 +130,13 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
           required
           minLength={10}
           autoComplete="new-password"
+          aria-invalid={!!error}
+          aria-describedby={error ? 'register-error password-hint' : 'password-hint'}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="field"
         />
-        <p className="hint">
+        <p id="password-hint" className="hint">
           At least 10 characters.{' '}
           {password ? (
             <span
@@ -144,8 +150,9 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
         </p>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-2.5 text-[14px]">
+      <label htmlFor="accept-terms" className="flex cursor-pointer items-start gap-2.5 text-[14px]">
         <input
+          id="accept-terms"
           type="checkbox"
           checked={accepted}
           onChange={(event) => setAccepted(event.target.checked)}
@@ -164,7 +171,7 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
         </span>
       </label>
 
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {error ? <ErrorNote id="register-error">{error}</ErrorNote> : null}
 
       <Button type="submit" disabled={busy} full size="lg">
         {busy ? 'Creating account…' : 'Create account'}

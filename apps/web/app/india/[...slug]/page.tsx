@@ -70,8 +70,9 @@ async function load(slug: string[]): Promise<PropertyDetail | null> {
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string[] } }): Promise<Metadata> {
-  const property = await load(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string[] }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const property = await load(slug);
   if (!property) return { title: 'Listing not found' };
 
   const price = property.listingType === 'SALE' ? inr(property.salePrice, true) : `${inr(property.rentAmount, true)}/month`;
@@ -89,8 +90,9 @@ export async function generateMetadata({ params }: { params: { slug: string[] } 
   };
 }
 
-export default async function PropertyPage({ params }: { params: { slug: string[] } }) {
-  const property = await load(params.slug);
+export default async function PropertyPage({ params }: { params: Promise<{ slug: string[] }> }) {
+  const { slug } = await params;
+  const property = await load(slug);
   if (!property) notFound();
 
   const me = await serverApiOrNull<{ id: number; roles: string[] }>('/auth/me');

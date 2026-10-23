@@ -14,13 +14,14 @@ type Me = {
   permissions: string[];
 };
 
-export default async function AgreementDraftingPage({ params }: { params: { id: string } }) {
+export default async function AgreementDraftingPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const me = await serverApiOrNull<Me>('/auth/me');
-  if (!me) redirect(`/login?next=/dashboard/legal/${params.id}/agreement`);
+  if (!me) redirect(`/login?next=/dashboard/legal/${id}/agreement`);
 
   // RBAC check: Must hold agreement.draft or legal.case.manage
   if (!me.permissions.includes('agreement.draft') && !me.permissions.includes('legal.case.manage')) {
-    redirect(`/dashboard/legal/${params.id}`);
+    redirect(`/dashboard/legal/${id}`);
   }
 
   let caseResponse: {
@@ -29,7 +30,7 @@ export default async function AgreementDraftingPage({ params }: { params: { id: 
   };
 
   try {
-    caseResponse = await serverApi<any>(`/legal/cases/${params.id}`);
+    caseResponse = await serverApi<any>(`/legal/cases/${id}`);
   } catch (error) {
     if (error instanceof ApiError && [403, 404].includes(error.status)) notFound();
     throw error;

@@ -49,10 +49,11 @@ type Detail = {
   };
 };
 
-export default async function ConditionReportPage({ params }: { params: { id: string } }) {
+export default async function ConditionReportPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   let data: Detail;
   try {
-    data = await serverApi<Detail>(`/inspections/${params.id}`);
+    data = await serverApi<Detail>(`/inspections/${id}`);
   } catch (error) {
     if (error instanceof ApiError && [403, 404].includes(error.status)) notFound();
     throw error;

@@ -199,7 +199,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const runner = conn || this.pool;
     await runner.execute(
       `INSERT INTO reference_sequences (sequence_name, current_value)
-       VALUES (?, 1)
+       VALUES (?, LAST_INSERT_ID(1))
        ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`,
       [sequenceName],
     );

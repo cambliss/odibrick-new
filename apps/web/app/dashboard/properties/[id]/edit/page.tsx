@@ -11,8 +11,9 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function EditPropertyPage({ params }: { params: { id: string } }) {
-  const propertyId = Number(params.id);
+export default async function EditPropertyPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const propertyId = Number(id);
   if (!propertyId || isNaN(propertyId)) {
     notFound();
   }

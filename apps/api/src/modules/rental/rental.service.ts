@@ -1102,13 +1102,13 @@ export class RentalService {
 
     const proposedRent = dto.proposedRent ?? Number(tenancy.rent_amount);
     
-    let baseStartDate = originalAgreement.effective_to ? new Date(originalAgreement.effective_to) : (tenancy.end_date ? new Date(tenancy.end_date) : new Date());
+    const baseStartDate = originalAgreement.effective_to ? new Date(originalAgreement.effective_to) : (tenancy.end_date ? new Date(tenancy.end_date) : new Date());
     baseStartDate.setDate(baseStartDate.getDate() + 1);
     const defaultStartStr = baseStartDate.toISOString().slice(0, 10);
     const startDate = dto.proposedStartDate ?? defaultStartStr;
 
     const months = dto.tenureMonths ?? 11;
-    let baseEndDate = new Date(startDate);
+    const baseEndDate = new Date(startDate);
     baseEndDate.setMonth(baseEndDate.getMonth() + months);
     baseEndDate.setDate(baseEndDate.getDate() - 1);
     const defaultEndStr = baseEndDate.toISOString().slice(0, 10);

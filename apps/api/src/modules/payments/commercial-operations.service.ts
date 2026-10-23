@@ -512,7 +512,7 @@ export class CommercialOperationsService {
     }
 
     // 2. Match rule or fallback
-    let rule = params.ruleId
+    const rule = params.ruleId
       ? await this.db.one<any>('SELECT * FROM commercial_rules WHERE id = ?', [params.ruleId])
       : await this.matchRule(params.category, params.appliesTo || 'STANDARD', params.city);
 

@@ -40,6 +40,8 @@ export function LoginForm({ next }: { next?: string }) {
           type="email"
           autoComplete="email"
           required
+          aria-invalid={!!error}
+          aria-describedby={error ? 'login-error' : undefined}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           className="field"
@@ -61,13 +63,15 @@ export function LoginForm({ next }: { next?: string }) {
           type="password"
           autoComplete="current-password"
           required
+          aria-invalid={!!error}
+          aria-describedby={error ? 'login-error' : undefined}
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className="field"
         />
       </div>
 
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {error ? <ErrorNote id="login-error">{error}</ErrorNote> : null}
 
       <Button type="submit" disabled={busy} full size="lg">
         {busy ? 'Signing in…' : 'Sign in'}

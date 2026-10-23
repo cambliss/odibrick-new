@@ -589,14 +589,14 @@ export function PropertyEditForm({ initialData }: { initialData: PropertyEditDat
         {/* Notifications & Status Banner */}
         {error ? (
           <div className="mt-4">
-            <ErrorNote>{error}</ErrorNote>
+            <ErrorNote id="property-edit-error">{error}</ErrorNote>
           </div>
         ) : null}
 
         {saveStatus ? (
-          <div className="mt-4 rounded-card border border-seal/40 bg-seal-soft p-3 text-sm font-medium text-seal flex items-center justify-between">
+          <div role="status" aria-live="polite" className="mt-4 rounded-card border border-seal/40 bg-seal-soft p-3 text-sm font-medium text-seal flex items-center justify-between">
             <span>✓ {saveStatus}</span>
-            <button onClick={() => setSaveStatus(null)} className="text-xs text-muted hover:text-ink">Dismiss</button>
+            <button type="button" aria-label="Dismiss status notification" onClick={() => setSaveStatus(null)} className="text-xs text-muted hover:text-ink">Dismiss</button>
           </div>
         ) : null}
       </Card>

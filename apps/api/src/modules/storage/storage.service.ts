@@ -484,6 +484,32 @@ export class StorageService {
     }
   }
 
+  async checkHealth(): Promise<{ driver: 'LOCAL' | 'S3'; status: 'up' | 'down'; latencyMs?: number }> {
+    const start = Date.now();
+    try {
+      if (this.driverName === 'LOCAL') {
+        const roots = (this.driver as LocalDriver)['roots'] || [];
+        const ok = roots.length > 0 && roots.some((r: string) => fsSync.existsSync(r));
+        return { driver: 'LOCAL', status: ok ? 'up' : 'down', latencyMs: Date.now() - start };
+      } else {
+        await Promise.race([
+          this.driver.exists('health-probe.tmp'),
+          new Promise<boolean>((_, reject) =>
+            setTimeout(() => reject(new Error('Storage request timed out after 3000ms')), 3000),
+          ),
+        ]).catch((err) => {
+          if (err.name === 'NoSuchKey' || err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) {
+            return false;
+          }
+          throw err;
+        });
+        return { driver: 'S3', status: 'up', latencyMs: Date.now() - start };
+      }
+    } catch {
+      return { driver: this.driverName, status: 'down', latencyMs: Date.now() - start };
+    }
+  }
+
   isStaff(user: AuthUser): boolean {
     if (!user) return false;
     return (

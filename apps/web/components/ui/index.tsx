@@ -12,10 +12,12 @@ type ButtonProps = {
   onClick?: () => void;
   className?: string;
   full?: boolean;
+  'aria-label'?: string;
 };
 
 const BUTTON_BASE =
   'inline-flex items-center justify-center gap-2 rounded-card font-medium transition-colors ' +
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-seal ' +
   'disabled:cursor-not-allowed disabled:opacity-50';
 
 const VARIANTS = {
@@ -29,18 +31,18 @@ const SIZES = { sm: 'px-3 py-1.5 text-[13px]', md: 'px-4 py-2.5 text-[15px]', lg
 
 export function Button({
   children, variant = 'primary', size = 'md', href, type = 'button',
-  disabled, onClick, className = '', full,
+  disabled, onClick, className = '', full, 'aria-label': ariaLabel,
 }: ButtonProps) {
   const classes = `${BUTTON_BASE} ${VARIANTS[variant]} ${SIZES[size]} ${full ? 'w-full' : ''} ${className}`;
   if (href) {
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} className={classes} aria-label={ariaLabel}>
         {children}
       </Link>
     );
   }
   return (
-    <button type={type} className={classes} disabled={disabled} onClick={onClick}>
+    <button type={type} className={classes} disabled={disabled} onClick={onClick} aria-label={ariaLabel}>
       {children}
     </button>
   );
@@ -110,9 +112,9 @@ export function EmptyState({ title, body, action }: { title: string; body: strin
   );
 }
 
-export function ErrorNote({ children }: { children: ReactNode }) {
+export function ErrorNote({ children, id }: { children: ReactNode; id?: string }) {
   return (
-    <p role="alert" className="rounded-card border border-alert/25 bg-alert/5 px-3 py-2 text-sm text-alert">
+    <p id={id} role="alert" aria-live="assertive" className="rounded-card border border-alert/25 bg-alert/5 px-3 py-2 text-sm text-alert">
       {children}
     </p>
   );

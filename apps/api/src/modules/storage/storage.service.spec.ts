@@ -224,5 +224,24 @@ describe('Storage Module & Fallback SVG Tests', () => {
       const service = new StorageService(mockConfig, {} as any, {} as any, {} as any);
       expect(service.getDriverName()).toBe('LOCAL');
     });
+
+    it('reports health status without exposing credentials', async () => {
+      const mockConfig = {
+        get: jest.fn((key: string) => {
+          if (key === 'storage.driver') return 'LOCAL';
+          if (key === 'storage.localRoot') return '/tmp/storage-test';
+          return undefined;
+        }),
+      } as unknown as ConfigService;
+
+      const service = new StorageService(mockConfig, {} as any, {} as any, {} as any);
+      const health = await service.checkHealth();
+      expect(health.driver).toBe('LOCAL');
+      expect(health.status).toBe('up');
+      expect((health as any).accessKeyId).toBeUndefined();
+      expect((health as any).secretAccessKey).toBeUndefined();
+      expect((health as any).bucket).toBeUndefined();
+    });
   });
 });
+

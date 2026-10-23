@@ -197,7 +197,7 @@ export class PublicPropertyViewController {
     @Req() req?: Request,
   ) {
     const authHeader = req?.headers?.authorization;
-    let userId: number | null = null;
+    const userId: number | null = null;
     // Basic optional user extraction if present
     return this.personalizationService.trackInteraction(
       userId,

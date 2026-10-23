@@ -14,15 +14,16 @@ type Me = {
   permissions: string[];
 };
 
-export default async function AgreementDetailPage({ params }: { params: { id: string } }) {
+export default async function AgreementDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const me = await serverApiOrNull<Me>('/auth/me');
   if (!me) {
-    redirect(`/login?next=/dashboard/agreements/${params.id}`);
+    redirect(`/login?next=/dashboard/agreements/${id}`);
   }
 
   let data: AgreementDetailPayload;
   try {
-    data = await serverApi<AgreementDetailPayload>(`/agreements/${params.id}`);
+    data = await serverApi<AgreementDetailPayload>(`/agreements/${id}`);
   } catch (error) {
     if (error instanceof ApiError && [403, 404].includes(error.status)) {
       notFound();

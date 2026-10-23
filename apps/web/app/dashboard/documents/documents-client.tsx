@@ -469,7 +469,7 @@ export function DocumentsClient() {
           <div className="w-full max-w-lg rounded-card border border-line bg-white p-6 shadow-card">
             <h2 className="font-display text-xl font-semibold">Upload Document to Vault</h2>
             <p className="mt-1 text-[13px] text-muted">
-              Uploaded files are stored encrypted in Odibrick's private vault and never exposed publicly.
+              Uploaded files are stored encrypted in Odibrick&apos;s private vault and never exposed publicly.
             </p>
 
             <form onSubmit={handleUpload} className="mt-5 space-y-4">

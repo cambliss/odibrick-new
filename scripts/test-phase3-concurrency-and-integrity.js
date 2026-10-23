@@ -64,9 +64,77 @@ async function runTests() {
 
   try {
     // ------------------------------------------------------------------
-    // TEST 1: Reference Sequence Generation Concurrency (20 simultaneous workers)
+    // TEST 1: Reference Sequence Generator Tests
     // ------------------------------------------------------------------
-    console.log('--- 1. Testing Reference Sequence Concurrency (20 simultaneous workers) ---');
+    console.log('--- 1. Testing Reference Sequence Generator (First-Use, Isolation & Concurrency) ---');
+
+    // 1A. First-use behavior on a brand new sequence name + immunity to connection LAST_INSERT_ID pollution
+    const firstUseSeqName = `TEST_FIRST_USE_${Date.now()}`;
+    const conn1 = await pool.getConnection();
+    try {
+      // Simulate prior auto-increment insert pollution on this connection
+      await conn1.execute('SELECT LAST_INSERT_ID(9999)');
+
+      // First call on non-existent sequence name
+      await conn1.execute(
+        `INSERT INTO reference_sequences (sequence_name, current_value)
+         VALUES (?, LAST_INSERT_ID(1))
+         ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`,
+        [firstUseSeqName]
+      );
+      const [r1] = await conn1.execute('SELECT LAST_INSERT_ID() AS val');
+      const val1 = Number(r1[0].val);
+
+      // Second call on same sequence
+      await conn1.execute(
+        `INSERT INTO reference_sequences (sequence_name, current_value)
+         VALUES (?, LAST_INSERT_ID(1))
+         ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`,
+        [firstUseSeqName]
+      );
+      const [r2] = await conn1.execute('SELECT LAST_INSERT_ID() AS val');
+      const val2 = Number(r2[0].val);
+
+      assert(val1 === 1, `First-use call returned exactly 1 (unpolluted by connection prior ID 9999)`);
+      assert(val2 === 2, `Second-use call returned exactly 2 (monotonically incremented)`);
+    } finally {
+      await conn1.execute('DELETE FROM reference_sequences WHERE sequence_name = ?', [firstUseSeqName]);
+      conn1.release();
+    }
+
+    // 1B. Concurrent first-use: 10 workers simultaneously inserting a non-existent sequence
+    const concFirstUseSeq = `TEST_CONC_FIRST_USE_${Date.now()}`;
+    const firstUseWorkers = [];
+    for (let i = 0; i < 10; i++) {
+      firstUseWorkers.push(
+        (async () => {
+          const conn = await pool.getConnection();
+          try {
+            await conn.execute('SELECT LAST_INSERT_ID(7777)');
+            await conn.execute(
+              `INSERT INTO reference_sequences (sequence_name, current_value)
+               VALUES (?, LAST_INSERT_ID(1))
+               ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`,
+              [concFirstUseSeq]
+            );
+            const [rows] = await conn.execute('SELECT LAST_INSERT_ID() AS val');
+            return Number(rows[0].val);
+          } finally {
+            conn.release();
+          }
+        })()
+      );
+    }
+    const firstUseResults = await Promise.all(firstUseWorkers);
+    const sortedFirstUse = [...firstUseResults].sort((a, b) => a - b);
+    const uniqueFirstUse = new Set(firstUseResults);
+
+    assert(uniqueFirstUse.size === 10, 'Concurrent first-use generated 10 strictly unique sequence numbers');
+    assert(sortedFirstUse[0] === 1 && sortedFirstUse[9] === 10, 'Concurrent first-use values are consecutive 1 through 10');
+
+    await pool.execute('DELETE FROM reference_sequences WHERE sequence_name = ?', [concFirstUseSeq]);
+
+    // 1C. High-concurrency on an existing sequence (20 simultaneous workers)
     const WORKER_COUNT = 20;
     const seqPromises = [];
 
@@ -77,11 +145,11 @@ async function runTests() {
           try {
             await conn.execute(
               `INSERT INTO reference_sequences (sequence_name, current_value)
-               VALUES ('TEST_CONCURRENCY', 1)
+               VALUES ('TEST_CONCURRENCY', LAST_INSERT_ID(1))
                ON DUPLICATE KEY UPDATE current_value = LAST_INSERT_ID(current_value + 1)`
             );
             const [rows] = await conn.execute('SELECT LAST_INSERT_ID() AS val');
-            const seqVal = rows[0].val;
+            const seqVal = Number(rows[0].val);
             const refCode = formatReference('TEST', seqVal);
             return { seqVal, refCode };
           } finally {

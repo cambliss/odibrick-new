@@ -7,6 +7,24 @@ const { LegalService } = require('../apps/api/dist/modules/legal/legal.service')
 const { PaymentsService } = require('../apps/api/dist/modules/payments/payments.service');
 const { DatabaseService } = require('../apps/api/dist/common/database/database.service');
 
+const TEST_PROPERTY_ID = 9888;
+const TEST_PROPERTY_PUBLIC_ID = '01JTESTPROP988800000000000';
+const TEST_TENANCY_ID = 9888;
+const TEST_TENANCY_PUBLIC_ID = '01JTEST9888000000000000000';
+
+async function cleanupTestFixtures(db) {
+  await db.query('DELETE FROM dispute_evidence WHERE dispute_id IN (SELECT id FROM disputes WHERE tenancy_id = ?)', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE context_type = "DISPUTE" AND context_id IN (SELECT id FROM disputes WHERE tenancy_id = ?))', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM conversation_participants WHERE conversation_id IN (SELECT id FROM conversations WHERE context_type = "DISPUTE" AND context_id IN (SELECT id FROM disputes WHERE tenancy_id = ?))', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM conversations WHERE context_type = "DISPUTE" AND context_id IN (SELECT id FROM disputes WHERE tenancy_id = ?)', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM payments WHERE tenancy_id = ?', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM property_timeline WHERE tenancy_id = ?', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM legal_cases WHERE tenancy_id = ?', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM disputes WHERE tenancy_id = ?', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM tenancies WHERE id = ?', [TEST_TENANCY_ID]);
+  await db.query('DELETE FROM properties WHERE id = ?', [TEST_PROPERTY_ID]);
+}
+
 async function run() {
   console.log('============================================================');
   console.log('ODIBRICK — DISPUTE & RESOLUTION MANAGEMENT LIFECYCLE E2E TEST');
@@ -74,32 +92,40 @@ async function run() {
     }
     console.log('✓ Baseline canonical cases verified: Case 1 EXECUTED, Case 2 QUEUED, Case 3 EXECUTED');
 
-    // Setting up isolated test tenancy #8888 for dispute testing
-    console.log('\n--- Setting up isolated Test Tenancy #8888 ---');
-    await db.query('DELETE FROM dispute_evidence WHERE dispute_id IN (SELECT id FROM disputes WHERE tenancy_id = 8888)');
-    await db.query('DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE context_type = "DISPUTE" AND context_id IN (SELECT id FROM disputes WHERE tenancy_id = 8888))');
-    await db.query('DELETE FROM conversation_participants WHERE conversation_id IN (SELECT id FROM conversations WHERE context_type = "DISPUTE" AND context_id IN (SELECT id FROM disputes WHERE tenancy_id = 8888))');
-    await db.query('DELETE FROM conversations WHERE context_type = "DISPUTE" AND context_id IN (SELECT id FROM disputes WHERE tenancy_id = 8888)');
-    await db.query('DELETE FROM payments WHERE tenancy_id = 8888');
-    await db.query('DELETE FROM property_timeline WHERE tenancy_id = 8888');
-    await db.query('DELETE FROM disputes WHERE tenancy_id = 8888');
-    await db.query('DELETE FROM tenancies WHERE id = 8888');
+    // Setting up isolated test property & tenancy for dispute testing
+    console.log(`\n--- Setting up isolated Test Property #${TEST_PROPERTY_ID} & Tenancy #${TEST_TENANCY_ID} ---`);
+    await cleanupTestFixtures(db);
+
+    await db.query(
+      `INSERT INTO properties (
+        id, public_id, slug, listed_by_user_id, listed_by_role, owner_id,
+        title, listing_type, property_type, rent_amount, security_deposit,
+        address_line1, locality, city, state, pincode, status, is_demo
+      ) VALUES (
+        ?, ?, 'india/pune/test-dispute-property-9888', ?, 'OWNER', 1,
+        'Isolated Test Property 9888', 'RENT', 'APARTMENT', 60000.00, 120000.00,
+        'Plot 99, Tech Park Road', 'Hinjewadi', 'Pune', 'Maharashtra', '411057', 'RENTED', 1
+      )
+      ON DUPLICATE KEY UPDATE status = 'RENTED'`,
+      [TEST_PROPERTY_ID, TEST_PROPERTY_PUBLIC_ID, ownerUser.id]
+    );
 
     await db.query(
       `INSERT INTO tenancies (
         id, public_id, property_id, owner_user_id, tenant_user_id, stage, service_plan, rent_amount, deposit_amount,
         start_date, end_date, lock_in_months, notice_period_days, created_at, updated_at
       ) VALUES (
-        8888, '01JTEST8888000000000000000', 1, 8, 30, 'ACTIVE', 'STANDARD', 60000.00, 120000.00,
+        ?, ?, ?, ?, ?, 'ACTIVE', 'STANDARD', 60000.00, 120000.00,
         '2026-01-01', '2026-12-31', 6, 30, NOW(), NOW()
-      )`
+      )`,
+      [TEST_TENANCY_ID, TEST_TENANCY_PUBLIC_ID, TEST_PROPERTY_ID, ownerUser.id, tenantUser.id]
     );
-    console.log('✓ Tenancy #8888 created (ACTIVE, Rent: 60,000, Deposit: 120,000)');
+    console.log(`✓ Tenancy #${TEST_TENANCY_ID} created on dedicated Property #${TEST_PROPERTY_ID} (ACTIVE, Rent: 60,000, Deposit: 120,000)`);
 
     // 1. Tenant creates dispute
-    console.log('\n1. Test: Tenant creates dispute on Tenancy #8888');
+    console.log(`\n1. Test: Tenant creates dispute on Tenancy #${TEST_TENANCY_ID}`);
     const tenantDispute = await ops.createDispute(tenantUser, {
-      tenancyId: 8888,
+      tenancyId: TEST_TENANCY_ID,
       category: 'DEPOSIT',
       amountClaimed: 25000,
       summary: 'Dispute over proposed security deposit deductions for wall painting',
@@ -111,9 +137,9 @@ async function run() {
     console.log(`✓ Tenant dispute created successfully: Case ID=${tenantDispute.id}, CaseNumber=${tenantDispute.caseNumber}, Status=${tenantDispute.status}`);
 
     // 2. Owner creates dispute
-    console.log('\n2. Test: Owner creates dispute on Tenancy #8888');
+    console.log(`\n2. Test: Owner creates dispute on Tenancy #${TEST_TENANCY_ID}`);
     const ownerDispute = await ops.createDispute(ownerUser, {
-      tenancyId: 8888,
+      tenancyId: TEST_TENANCY_ID,
       category: 'PROPERTY_DAMAGE',
       amountClaimed: 15000,
       summary: 'Appliance repair and fixture damage claim',
@@ -129,7 +155,7 @@ async function run() {
     let unauthCreatePassed = false;
     try {
       await ops.createDispute(unrelatedUser, {
-        tenancyId: 8888,
+        tenancyId: TEST_TENANCY_ID,
         category: 'MAINTENANCE',
         summary: 'Unauthorized claim',
       });
@@ -151,8 +177,8 @@ async function run() {
     console.log('\n5. Test: Party sees only their authorized disputes');
     const tenantList = await ops.listDisputes(tenantUser);
     const unrelatedList = await ops.listDisputes(unrelatedUser);
-    if (unrelatedList.some((d) => d.tenancy_id === 8888)) {
-      throw new Error('Party isolation failed: unrelated user can see Tenancy #8888 disputes!');
+    if (unrelatedList.some((d) => d.tenancy_id === TEST_TENANCY_ID)) {
+      throw new Error(`Party isolation failed: unrelated user can see Tenancy #${TEST_TENANCY_ID} disputes!`);
     }
     console.log(`✓ Party isolation verified: Tenant sees ${tenantList.length} disputes, unrelated user sees ${unrelatedList.length} disputes.`);
 
@@ -314,7 +340,8 @@ async function run() {
     // 23. Timeline events recorded
     console.log('\n23. Test: Property Timeline events verified');
     const timelines = await db.query(
-      "SELECT event_code, title FROM property_timeline WHERE tenancy_id = 8888 ORDER BY id ASC",
+      "SELECT event_code, title FROM property_timeline WHERE tenancy_id = ? ORDER BY id ASC",
+      [TEST_TENANCY_ID],
     );
     console.log(`✓ Timeline events recorded (${timelines.length} total): ${timelines.map((t) => t.title).join(' | ')}`);
 
@@ -328,19 +355,20 @@ async function run() {
 
     // 25 & 26. Tenancy Hold by Management
     console.log('\n25 & 26. Test: Tenancy Hold governance');
-    const initialStageCheck = await db.one('SELECT stage FROM tenancies WHERE id = 8888');
+    const initialStageCheck = await db.one('SELECT stage FROM tenancies WHERE id = ?', [TEST_TENANCY_ID]);
     if (initialStageCheck.stage !== 'ACTIVE') {
       throw new Error(`Tenancy should not be automatically held on dispute opening! Stage: ${initialStageCheck.stage}`);
     }
     console.log('✓ Verified: Tenancy was NOT automatically placed on hold upon dispute opening.');
 
     // Apply explicit administrative hold
-    const holdRes = await rental.adminOverrideTenancy(adminUser, 8888, {
+    const holdRes = await rental.adminOverrideTenancy(adminUser, TEST_TENANCY_ID, {
       action: 'HOLD',
       reason: 'Dispute requires operational hold during property inspection review',
     });
     const holdTimeline = await db.one(
-      "SELECT * FROM property_timeline WHERE tenancy_id = 8888 AND title = 'Tenancy placed on administrative hold' ORDER BY id DESC LIMIT 1"
+      "SELECT * FROM property_timeline WHERE tenancy_id = ? AND title = 'Tenancy placed on administrative hold' ORDER BY id DESC LIMIT 1",
+      [TEST_TENANCY_ID]
     );
     if (!holdTimeline) {
       throw new Error('Tenancy hold timeline event not found!');
@@ -348,12 +376,13 @@ async function run() {
     console.log(`✓ Administrative tenancy HOLD applied by management successfully: ${holdTimeline.title}`);
 
     // Resume tenancy
-    const resumeRes = await rental.adminOverrideTenancy(adminUser, 8888, {
+    const resumeRes = await rental.adminOverrideTenancy(adminUser, TEST_TENANCY_ID, {
       action: 'RESUME',
       reason: 'Resolution reached, hold released',
     });
     const resumeTimeline = await db.one(
-      "SELECT * FROM property_timeline WHERE tenancy_id = 8888 AND title = 'Tenancy administrative hold resumed' ORDER BY id DESC LIMIT 1"
+      "SELECT * FROM property_timeline WHERE tenancy_id = ? AND title = 'Tenancy administrative hold resumed' ORDER BY id DESC LIMIT 1",
+      [TEST_TENANCY_ID]
     );
     if (!resumeTimeline) {
       throw new Error('Tenancy resume timeline event not found!');
@@ -406,6 +435,12 @@ async function run() {
     console.log('ALL 32 VERIFICATION CRITERIA PASSED SUCCESSFULLY!');
     console.log('============================================================');
   } finally {
+    try {
+      await cleanupTestFixtures(db);
+      console.log(`✓ Cleanup: Test fixtures for isolated tenancy #${TEST_TENANCY_ID} and property #${TEST_PROPERTY_ID} removed.`);
+    } catch (cleanupErr) {
+      console.warn('Warning: test fixture cleanup encountered error:', cleanupErr.message);
+    }
     await app.close();
   }
 }

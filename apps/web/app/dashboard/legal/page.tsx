@@ -39,9 +39,10 @@ const FILTERS = [
   ['APPROVED', 'Awaiting signature'],
 ];
 
-export default async function LegalQueuePage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function LegalQueuePage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const sp = await searchParams;
   const result = await serverApi<{ data: LegalCase[]; meta: { total: number } }>('/legal/cases', {
-    query: { status: searchParams.status, perPage: 50 },
+    query: { status: sp.status, perPage: 50 },
   });
 
   const urgent = result.data.filter((c) => ['URGENT', 'HIGH'].includes(c.priority)).length;
@@ -65,7 +66,7 @@ export default async function LegalQueuePage({ searchParams }: { searchParams: {
 
       <div className="flex flex-wrap gap-1.5">
         {FILTERS.map(([value, label]) => {
-          const active = (searchParams.status ?? '') === value;
+          const active = (sp.status ?? '') === value;
           return (
             <Link
               key={label}

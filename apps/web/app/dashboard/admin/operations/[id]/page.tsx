@@ -10,8 +10,9 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-export default async function TaskDetailPage({ params }: { params: { id: string } }) {
-  const taskId = parseInt(params.id, 10);
+export default async function TaskDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const taskId = parseInt(id, 10);
   if (isNaN(taskId)) {
     notFound();
   }

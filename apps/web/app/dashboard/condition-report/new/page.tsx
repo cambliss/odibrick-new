@@ -10,15 +10,16 @@ export const dynamic = 'force-dynamic';
 export default async function StartConditionReportPage({
   searchParams,
 }: {
-  searchParams: { tenancyId?: string; kind?: string };
+  searchParams: Promise<{ tenancyId?: string; kind?: string }>;
 }) {
-  if (!searchParams.tenancyId) redirect('/dashboard/tenancies');
+  const sp = await searchParams;
+  if (!sp.tenancyId) redirect('/dashboard/tenancies');
 
   const result = await serverApi<{ id: number }>('/inspections', {
     method: 'POST',
     body: JSON.stringify({
-      tenancyId: Number(searchParams.tenancyId),
-      kind: searchParams.kind ?? 'CHECK_IN',
+      tenancyId: Number(sp.tenancyId),
+      kind: sp.kind ?? 'CHECK_IN',
     }),
   });
 

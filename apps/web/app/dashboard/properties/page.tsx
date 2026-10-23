@@ -19,10 +19,11 @@ const TABS = [
 export default async function MyPropertiesPage({
   searchParams,
 }: {
-  searchParams: { status?: string };
+  searchParams: Promise<{ status?: string }>;
 }) {
+  const sp = await searchParams;
   const result = await serverApi<{ data: Listing[]; meta: { total: number } }>('/properties/mine', {
-    query: { status: searchParams.status, perPage: 50 },
+    query: { status: sp.status, perPage: 50 },
   });
 
   return (
@@ -40,7 +41,7 @@ export default async function MyPropertiesPage({
 
       <div className="flex flex-wrap gap-1.5">
         {TABS.map(([value, label]) => {
-          const active = (searchParams.status ?? '') === value;
+          const active = (sp.status ?? '') === value;
           return (
             <Link
               key={label}
