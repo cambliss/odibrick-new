@@ -45,6 +45,14 @@ export type AgreementDetailPayload = {
     effective_from?: string;
     effective_to?: string;
     stamp_duty_status: string;
+    stamp_reference?: string;
+    stamp_document_id?: number;
+    stamp_verified_by_name?: string;
+    stamp_verified_at?: string;
+    stamp_amount?: number;
+    stamp_state?: string;
+    stamp_rejection_reason?: string;
+    stamp_document_title?: string;
     approved_at?: string;
     approved_by_name?: string;
     executed_at?: string;
@@ -70,6 +78,14 @@ export type AgreementDetailPayload = {
   clauses: AgreementClause[];
   signatories: Signatory[];
   versions: AgreementVersion[];
+  feePayment?: {
+    id: number;
+    reference_code: string;
+    purpose: string;
+    total_amount: number;
+    status: string;
+    paid_at?: string;
+  } | null;
   legalStatus: string;
 };
 
@@ -113,6 +129,40 @@ export function AgreementView({
     ['AWAITING_SIGNATURES', 'PARTIALLY_SIGNED'].includes(agreement.status);
 
   const isExecuted = agreement.status === 'EXECUTED';
+  const allSigned = signatories.length > 0 && signatories.every((s) => s.status === 'SIGNED');
+  const feePaid = data.feePayment?.status === 'PAID';
+  const stampVerified = ['PAID', 'REGISTERED'].includes(agreement.stamp_duty_status) && Boolean(agreement.stamp_verified_at);
+  const stampNotApplicable = agreement.stamp_duty_status === 'NOT_APPLICABLE';
+  const isStampingRejected = Boolean(agreement.stamp_rejection_reason);
+
+  const [certInput, setCertInput] = useState(agreement.stamp_reference || '');
+  const [stampAmtInput, setStampAmtInput] = useState(agreement.stamp_amount ? String(agreement.stamp_amount) : '');
+  const [stampStateInput, setStampStateInput] = useState(agreement.stamp_state || 'Karnataka');
+  const [submittingStamp, setSubmittingStamp] = useState(false);
+  const [stampMsg, setStampMsg] = useState<string | null>(null);
+
+  const handleStampingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!certInput.trim()) return;
+    setSubmittingStamp(true);
+    setStampMsg(null);
+    try {
+      await api(`/agreements/${agreement.id}/stamping/submit`, {
+        method: 'POST',
+        body: JSON.stringify({
+          certificateNumber: certInput.trim(),
+          state: stampStateInput.trim() || undefined,
+          stampAmount: stampAmtInput ? Number(stampAmtInput) : undefined,
+        }),
+      });
+      setStampMsg('E-Stamp certificate reference submitted. Odibrick staff will verify it.');
+      router.refresh();
+    } catch (err) {
+      setStampMsg(err instanceof ApiError ? err.message : 'Failed to submit certificate.');
+    } finally {
+      setSubmittingStamp(false);
+    }
+  };
 
   // Extract variables
   const variables = typeof version?.variables === 'string' ? JSON.parse(version.variables) : (version?.variables || {});
@@ -132,11 +182,14 @@ export function AgreementView({
         body: JSON.stringify({
           consent: true,
           consentText: `I, ${currentUser.fullName} (${isOwner ? 'Owner / Licensor' : 'Tenant / Licensee'}), have read and accept all terms of Agreement ${agreement.agreement_number} (v${agreement.current_version}).`,
+          version: agreement.current_version,
         }),
       });
 
       if (res.status === 'EXECUTED') {
         setSuccessMsg('Agreement successfully signed by all parties and executed!');
+      } else if (res.status === 'AWAITING_PAYMENT' || res.pendingSignatures === 0) {
+        setSuccessMsg('Agreement successfully signed by all parties! Initial payment is now pending confirmation before execution.');
       } else {
         setSuccessMsg('Your signature has been recorded. Waiting for the remaining party to sign.');
       }
@@ -168,6 +221,16 @@ export function AgreementView({
             <StatusChip status={agreement.status} />
             <Badge>Version {agreement.current_version}</Badge>
             {isExecuted ? <Badge tone="seal">Legally Executed</Badge> : null}
+            {allSigned && !isExecuted && feePaid && (stampVerified || stampNotApplicable) ? (
+              <Badge tone="seal">Execution Ready</Badge>
+            ) : allSigned && !isExecuted && feePaid && !stampVerified && !stampNotApplicable ? (
+              <Badge tone="ochre">Fee Paid · Stamping Pending</Badge>
+            ) : allSigned && !isExecuted && !feePaid && (stampVerified || stampNotApplicable) ? (
+              <Badge tone="info">Stamping Verified · Payment Pending</Badge>
+            ) : allSigned && !isExecuted ? (
+              <Badge tone="info">Signed · Payment & Stamping Pending</Badge>
+            ) : null}
+            {isStampingRejected ? <Badge tone="alert">Stamping Rejected</Badge> : null}
           </div>
           <p className="mt-1 text-[14px] text-muted">
             {agreement.property_title} · {agreement.locality}, {agreement.city}
@@ -175,7 +238,7 @@ export function AgreementView({
         </div>
 
         <div className="flex items-center gap-2">
-          {isExecuted && isTenant ? (
+          {(isExecuted || allSigned) && isTenant ? (
             <Button href="/dashboard/payments" variant="primary">
               Proceed to Payments →
             </Button>
@@ -198,11 +261,39 @@ export function AgreementView({
             <div>
               <p className="font-semibold text-seal-deep">Agreement Legally Executed</p>
               <p className="text-xs sm:text-sm text-ink/80">
-                All parties have completed click-wrap verification. Move-in dues and deposit are now activated.
+                All parties have signed, e-stamp duty is verified, and initial platform fee confirmed.
               </p>
             </div>
           </div>
           <Seal label="Executed" sub={agreement.executed_at ? shortDate(agreement.executed_at) : undefined} />
+        </div>
+      ) : allSigned ? (
+        <div className="rounded-card border border-ochre/40 bg-ochre-soft/30 p-4 sm:p-5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ochre text-white font-bold text-lg">
+              ℹ
+            </div>
+            <div>
+              <p className="font-semibold text-ink">
+                {feePaid && !(stampVerified || stampNotApplicable)
+                  ? 'Fee Paid · Awaiting Stamping Verification'
+                  : isStampingRejected
+                  ? 'Submitted E-Stamp Certificate Rejected'
+                  : (stampVerified || stampNotApplicable) && !feePaid
+                  ? 'E-Stamp Verified · Awaiting Fee Confirmation'
+                  : 'Signed by All Parties · Pending Payment & Stamping'}
+              </p>
+              <p className="text-xs sm:text-sm text-muted">
+                {feePaid && !(stampVerified || stampNotApplicable)
+                  ? 'Initial payment is confirmed. Authorized Odibrick staff must verify the e-stamp certificate before formal execution.'
+                  : isStampingRejected
+                  ? `The e-stamp certificate was rejected: ${agreement.stamp_rejection_reason}. Please submit a corrected certificate.`
+                  : (stampVerified || stampNotApplicable) && !feePaid
+                  ? 'E-stamp duty is verified. Please complete the initial platform fee payment to execute the agreement.'
+                  : 'Both parties have signed. Formal execution requires e-stamp verification and initial payment confirmation.'}
+              </p>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="rounded-card border border-ochre/40 bg-ochre-soft/30 p-4 sm:p-5 flex items-center justify-between gap-4">
@@ -367,8 +458,8 @@ export function AgreementView({
           {/* Signature Action Box */}
           <Card className="border-seal/40">
             <CardHeader
-              title={isExecuted ? 'Agreement Finalized' : 'Electronic Signature'}
-              note={isExecuted ? 'Executed by all parties' : 'Authenticated click-wrap signature'}
+              title={isExecuted ? 'Agreement Finalized' : allSigned ? 'Signatures Complete' : 'Electronic Signature'}
+              note={isExecuted ? 'Executed by all parties' : allSigned ? 'Awaiting initial payment confirmation' : 'Authenticated click-wrap signature'}
             />
             <div className="p-5 space-y-4">
               {successMsg ? (
@@ -425,6 +516,8 @@ export function AgreementView({
                   <p className="text-xs text-muted">
                     {isExecuted
                       ? 'All parties have executed the agreement.'
+                      : allSigned
+                      ? 'Both parties have signed. Initial payment is pending confirmation before formal execution.'
                       : 'Waiting for the counterparty to complete their signature.'}
                   </p>
                 </div>
@@ -434,13 +527,114 @@ export function AgreementView({
                 </div>
               ) : null}
 
-              {isExecuted && isTenant ? (
+              {(isExecuted || allSigned) && isTenant ? (
                 <div className="pt-3 border-t border-line">
                   <Button href="/dashboard/payments" variant="primary" full>
                     Go to Payments ({inr(agreement.rent_amount + agreement.deposit_amount)}) →
                   </Button>
                 </div>
               ) : null}
+            </div>
+          </Card>
+
+          {/* E-Stamping Details & Submission Box */}
+          <Card className="border-line">
+            <CardHeader
+              title="E-Stamping Status"
+              note={stampVerified ? 'Verified by Odibrick Legal' : 'State stamp duty obligation'}
+            />
+            <div className="p-5 space-y-3">
+              {stampMsg ? (
+                <div className="rounded-card border border-seal/30 bg-seal-soft/40 p-2.5 text-xs text-seal-deep">
+                  {stampMsg}
+                </div>
+              ) : null}
+
+              {stampVerified ? (
+                <div className="rounded border border-emerald-200 bg-emerald-50/50 p-3 space-y-1">
+                  <p className="font-semibold text-emerald-800 text-xs">✓ E-Stamp Duty Verified</p>
+                  <p className="text-xs text-ink font-mono">Certificate: {agreement.stamp_reference}</p>
+                  {agreement.stamp_verified_by_name ? (
+                    <p className="text-[11px] text-muted">
+                      Verified by {agreement.stamp_verified_by_name}{' '}
+                      {agreement.stamp_verified_at ? `on ${shortDate(agreement.stamp_verified_at)}` : ''}
+                    </p>
+                  ) : null}
+                </div>
+              ) : stampNotApplicable ? (
+                <div className="rounded border border-line bg-paper p-3 text-xs text-muted">
+                  E-Stamp duty is recorded as not applicable for this agreement.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {isStampingRejected ? (
+                    <div className="rounded border border-amber-300 bg-amber-50 p-3 text-xs space-y-1">
+                      <p className="font-semibold text-amber-900">Certificate Rejected</p>
+                      <p className="text-amber-800">{agreement.stamp_rejection_reason}</p>
+                      <p className="text-[11px] text-muted pt-1">Please submit a corrected certificate reference below.</p>
+                    </div>
+                  ) : agreement.stamp_reference ? (
+                    <div className="rounded border border-blue-200 bg-blue-50 p-3 text-xs space-y-1">
+                      <p className="font-semibold text-blue-900">Certificate Submitted</p>
+                      <p className="font-mono text-ink">Ref: {agreement.stamp_reference}</p>
+                      <p className="text-[11px] text-muted">Awaiting verification by Odibrick legal staff.</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted">
+                      E-stamp duty must be verified by Odibrick staff before agreement execution.
+                    </p>
+                  )}
+
+                  {isParty && !isExecuted ? (
+                    <form onSubmit={handleStampingSubmit} className="space-y-2.5 pt-2 border-t border-line">
+                      <div>
+                        <label className="block text-[11px] font-medium text-ink mb-1">
+                          E-Stamp Certificate / Reference Number
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. IN-KA12345678901234W"
+                          value={certInput}
+                          onChange={(e) => setCertInput(e.target.value)}
+                          className="w-full rounded border border-line px-2.5 py-1.5 text-xs font-mono"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-medium text-ink mb-1">State</label>
+                          <input
+                            type="text"
+                            placeholder="Karnataka"
+                            value={stampStateInput}
+                            onChange={(e) => setStampStateInput(e.target.value)}
+                            className="w-full rounded border border-line px-2.5 py-1.5 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-ink mb-1">Amount (INR)</label>
+                          <input
+                            type="number"
+                            placeholder="500"
+                            value={stampAmtInput}
+                            onChange={(e) => setStampAmtInput(e.target.value)}
+                            className="w-full rounded border border-line px-2.5 py-1.5 text-xs"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        size="sm"
+                        disabled={submittingStamp}
+                        full
+                      >
+                        {submittingStamp ? 'Submitting...' : 'Submit Certificate Reference'}
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
+              )}
             </div>
           </Card>
         </div>

@@ -407,7 +407,7 @@ export class RentalService {
     const [agreements, payments, meetings, inspections, legalCases, timeline, maintenance, disputes] = await Promise.all([
       this.db.query(
         `SELECT id, public_id, agreement_number, agreement_type, status, current_version, effective_from, effective_to,
-                stamp_duty_status, approved_at, executed_at
+                stamp_duty_status, stamp_reference, stamp_verified_at, stamp_rejection_reason, approved_at, executed_at
            FROM agreements WHERE tenancy_id = ? ORDER BY id DESC`, [id]),
       this.db.query(
         `SELECT id, reference_code, purpose, total_amount, status, due_date, paid_at

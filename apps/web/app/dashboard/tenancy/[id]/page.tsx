@@ -38,8 +38,8 @@ type TenancyDetail = {
     is_owner: boolean;
   };
   nextAction?: { label: string; href: string; detail?: string };
-  agreement?: { id: number; agreement_number: string; agreement_type?: string; status: string; executed_at?: string };
-  agreements?: Array<{ id: number; agreement_number: string; agreement_type?: string; status: string; executed_at?: string }>;
+  agreement?: { id: number; agreement_number: string; agreement_type?: string; status: string; executed_at?: string; stamp_duty_status?: string; stamp_reference?: string; stamp_verified_at?: string; stamp_rejection_reason?: string };
+  agreements?: Array<{ id: number; agreement_number: string; agreement_type?: string; status: string; executed_at?: string; stamp_duty_status?: string; stamp_reference?: string; stamp_verified_at?: string; stamp_rejection_reason?: string }>;
   legalCase?: { id: number; case_number: string; case_type?: string; status: string };
   legalCases?: Array<{ id: number; case_number: string; case_type?: string; status: string }>;
   renewalProposal?: {
@@ -330,7 +330,26 @@ export default async function TenancyPage({ params }: { params: Promise<{ id: st
                   </div>
                 ) : (
                   <p className="mt-3 text-[13px] text-muted">
-                    Not in force until every party has signed.
+                    {data.agreement.status === 'APPROVED_BY_LEGAL'
+                      ? (() => {
+                          const feePay = data.payments?.find((p: any) => ['SERVICE_FEE', 'COMMISSION'].includes(p.purpose));
+                          const feePaid = feePay?.status === 'PAID';
+                          const stampStatus = data.agreement.stamp_duty_status || '';
+                          const stampVerified = (['PAID', 'REGISTERED'].includes(stampStatus) && Boolean(data.agreement.stamp_verified_at)) || stampStatus === 'NOT_APPLICABLE';
+                          const stampRejected = Boolean(data.agreement.stamp_rejection_reason);
+
+                          if (feePaid && !stampVerified) {
+                            return 'Initial payment confirmed. Awaiting e-stamp duty verification before agreement execution.';
+                          }
+                          if (stampRejected) {
+                            return `Submitted e-stamp certificate was rejected: ${data.agreement.stamp_rejection_reason}. Please upload a replacement.`;
+                          }
+                          if (stampVerified && !feePaid) {
+                            return 'E-stamp duty verified. Awaiting initial payment confirmation before agreement execution.';
+                          }
+                          return 'The agreement is signed by all parties and is awaiting e-stamp verification and payment confirmation before execution.';
+                        })()
+                      : 'Not in force until every party has signed.'}
                   </p>
                 )}
                 <Button

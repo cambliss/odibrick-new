@@ -28,6 +28,7 @@ export class ApproveAgreementDto {
 
 export class SignAgreementDto {
   @IsBoolean() consent!: boolean;
+  @IsOptional() @Type(() => Number) @IsInt() version?: number;
   @IsOptional() @IsString() @MaxLength(500) consentText?: string;
   @IsOptional() @IsString() @MaxLength(64) otpReference?: string;
 }
@@ -48,4 +49,29 @@ export class AssignCaseDto {
 export class LegalNoteDto {
   @IsString() @MaxLength(4000) body!: string;
   @IsOptional() @IsIn(['INTERNAL','PARTIES']) visibility?: 'INTERNAL' | 'PARTIES';
+}
+
+export class SubmitStampingCertificateDto {
+  @IsString() @MaxLength(120) certificateNumber!: string;
+  @IsOptional() @Type(() => Number) @IsInt() documentId?: number;
+  @IsOptional() @IsString() @MaxLength(64) state?: string;
+  @IsOptional() @Type(() => Number) stampAmount?: number;
+}
+
+export class VerifyStampingDto {
+  @IsString() @MaxLength(120) certificateNumber!: string;
+  @IsOptional() @Type(() => Number) @IsInt() documentId?: number;
+  @IsOptional() @IsString() @MaxLength(64) state?: string;
+  @IsOptional() @Type(() => Number) stampAmount?: number;
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
+}
+
+export class RejectStampingDto {
+  @IsString() @MaxLength(500) reason!: string;
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
+}
+
+export class StampingNotApplicableDto {
+  @IsString() @MaxLength(500) reason!: string;
+  @IsOptional() @IsString() @MaxLength(1000) notes?: string;
 }

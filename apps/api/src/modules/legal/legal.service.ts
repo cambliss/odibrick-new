@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Request } from 'express';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -10,7 +10,9 @@ import { randomToken } from '../../common/util/crypto';
 import { pageParams, paginate } from '../../common/util/pagination';
 import {
   ApproveAgreementDto, AssignCaseDto, DraftAgreementDto, ScheduleMeetingDto, SignAgreementDto,
+  SubmitStampingCertificateDto, VerifyStampingDto, RejectStampingDto, StampingNotApplicableDto,
 } from './legal.dto';
+import { StorageService } from '../storage/storage.service';
 
 /**
  * The legal workspace.
@@ -24,11 +26,14 @@ import {
  */
 @Injectable()
 export class LegalService {
+  private readonly logger = new Logger(LegalService.name);
+
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly notify: NotificationsService,
     private readonly payments: PaymentsService,
+    private readonly storage: StorageService,
   ) {}
 
   // ----------------------------------------------------------------- cases
@@ -93,10 +98,19 @@ export class LegalService {
     if (!legalCase) throw new NotFoundException('Case not found.');
     this.assertCaseAccess(user, legalCase);
 
-    const [agreements, meetings, notes, kyc, documents, timeline, advocates, signatories] = await Promise.all([
+    const [agreements, meetings, notes, kyc, documents, timeline, advocates, signatories, feePayment] = await Promise.all([
       this.db.query(
-        `SELECT id, public_id, agreement_number, status, current_version, approved_at, executed_at,
-                stamp_duty_status FROM agreements WHERE legal_case_id = ? ORDER BY id DESC`, [id]),
+        `SELECT a.id, a.public_id, a.agreement_number, a.status, a.current_version, a.approved_at, a.executed_at,
+                a.stamp_duty_status, a.stamp_reference, a.stamp_document_id, a.stamp_verified_at,
+                a.stamp_amount, a.stamp_state, a.stamp_rejection_reason,
+                verifier.full_name AS stamp_verified_by_name,
+                doc.title AS stamp_document_title,
+                doc.public_id AS stamp_document_public_id,
+                doc.verification_status AS stamp_document_verification_status
+           FROM agreements a
+           LEFT JOIN users verifier ON verifier.id = a.stamp_verified_by
+           LEFT JOIN documents doc ON doc.id = a.stamp_document_id
+          WHERE a.legal_case_id = ? ORDER BY a.id DESC`, [id]),
       this.db.query(
         `SELECT id, public_id, purpose, scheduled_for, duration_min, status, provider, agenda, outcome_notes
            FROM legal_meetings WHERE legal_case_id = ? ORDER BY scheduled_for DESC`, [id]),
@@ -132,6 +146,10 @@ export class LegalService {
            JOIN agreements a ON a.id = s.agreement_id
           WHERE a.legal_case_id = ?
           ORDER BY s.sign_order`, [id]),
+      this.db.one(
+        `SELECT id, reference_code, purpose, total_amount, status, paid_at FROM payments
+          WHERE tenancy_id = ? AND purpose IN ('SERVICE_FEE', 'COMMISSION') ORDER BY id DESC LIMIT 1`,
+        [legalCase.tenancy_id]),
     ]);
 
     const agreementsWithSignatories = agreements.map((agr: any) => ({
@@ -139,7 +157,7 @@ export class LegalService {
       signatories: (signatories as any[]).filter((s) => s.agreement_id === agr.id),
     }));
 
-    return { case: legalCase, agreements: agreementsWithSignatories, meetings, notes, kyc, documents, timeline, advocates };
+    return { case: legalCase, agreements: agreementsWithSignatories, feePayment: feePayment || null, meetings, notes, kyc, documents, timeline, advocates };
   }
 
   async assign(user: AuthUser, id: number, dto: AssignCaseDto, req?: Request) {
@@ -190,8 +208,8 @@ export class LegalService {
       [caseId],
     );
 
-    if (agreement && ['EXECUTED', 'AWAITING_SIGNATURES', 'PARTIALLY_SIGNED'].includes(agreement.status)) {
-      throw new BadRequestException('This agreement is already out for signature. Cancel it before redrafting.');
+    if (agreement && ['EXECUTED', 'AWAITING_SIGNATURES', 'PARTIALLY_SIGNED', 'APPROVED_BY_LEGAL'].includes(agreement.status)) {
+      throw new BadRequestException('This agreement is already out for signature or signed. Cancel it before redrafting.');
     }
 
     if (!agreement) {
@@ -319,11 +337,17 @@ export class LegalService {
     const agreement = await this.db.one<any>(
       `SELECT a.*, t.owner_user_id, t.tenant_user_id, t.rent_amount, t.deposit_amount,
               p.title AS property_title, p.address_line1, p.locality, p.city, p.state, p.pincode,
-              approver.full_name AS approved_by_name
+              approver.full_name AS approved_by_name,
+              verifier.full_name AS stamp_verified_by_name,
+              doc.title AS stamp_document_title,
+              doc.public_id AS stamp_document_public_id,
+              doc.verification_status AS stamp_document_verification_status
          FROM agreements a
          JOIN tenancies t ON t.id = a.tenancy_id
          JOIN properties p ON p.id = t.property_id
          LEFT JOIN users approver ON approver.id = a.approved_by
+         LEFT JOIN users verifier ON verifier.id = a.stamp_verified_by
+         LEFT JOIN documents doc ON doc.id = a.stamp_document_id
         WHERE a.id = ?`,
       [agreementId],
     );
@@ -333,7 +357,7 @@ export class LegalService {
       throw new ForbiddenException('This agreement belongs to other parties.');
     }
 
-    const [version, clauses, signatories, versions] = await Promise.all([
+    const [version, clauses, signatories, versions, feePayment] = await Promise.all([
       this.db.one(
         `SELECT version, body_html, variables, change_summary, drafted_with_ai, reviewed_at
            FROM agreement_versions WHERE agreement_id = ? AND version = ?`,
@@ -353,6 +377,10 @@ export class LegalService {
            LEFT JOIN users drafter ON drafter.id = av.drafted_by
           WHERE av.agreement_id = ? ORDER BY av.version DESC`,
         [agreementId]),
+      this.db.one(
+        `SELECT id, reference_code, purpose, total_amount, status, paid_at FROM payments
+          WHERE tenancy_id = ? AND purpose IN ('SERVICE_FEE', 'COMMISSION') ORDER BY id DESC LIMIT 1`,
+        [agreement.tenancy_id]),
     ]);
 
     return {
@@ -361,11 +389,12 @@ export class LegalService {
       clauses,
       signatories,
       versions,
+      feePayment: feePayment || null,
       // The UI must not present an unexecuted document as an enforceable contract.
       legalStatus:
         agreement.status === 'EXECUTED'
-          ? 'Executed by all parties. Stamping and registration status is shown separately.'
-          : 'Draft. This document is not in force until every party has signed and it is executed.',
+          ? 'Executed by all parties. E-stamp duty verified and initial platform fee confirmed.'
+          : 'Draft. This document is not in force until every party has signed, e-stamp duty is verified, and initial payment is confirmed.',
     };
   }
 
@@ -382,6 +411,23 @@ export class LegalService {
     }
     if (!agreement.approved_by) {
       throw new BadRequestException('This draft has not been approved by the legal team yet.');
+    }
+
+    // Verify the current agreement version has been approved and matches the requested version
+    const currentVer = await this.db.one<any>(
+      'SELECT version, reviewed_at FROM agreement_versions WHERE agreement_id = ? AND version = ?',
+      [agreementId, agreement.current_version],
+    );
+    if (!currentVer) {
+      throw new BadRequestException('Agreement version not found.');
+    }
+    if (!currentVer.reviewed_at) {
+      throw new BadRequestException('The current agreement version has not been approved by the legal team.');
+    }
+    if (dto.version !== undefined && dto.version !== agreement.current_version) {
+      throw new BadRequestException(
+        `Cannot sign version ${dto.version}; current approved version is ${agreement.current_version}.`,
+      );
     }
 
     const signatory = await this.db.one<any>(
@@ -412,20 +458,21 @@ export class LegalService {
       return { status: 'PARTIALLY_SIGNED', pendingSignatures: pending?.c ?? 0 };
     }
 
-    await this.db.update('agreements', agreementId, { status: 'EXECUTED', executed_at: new Date() });
-    await this.db.update('legal_cases', agreement.legal_case_id, { status: 'EXECUTED', closed_at: new Date() });
-
     const tenancy = await this.db.one<any>('SELECT * FROM tenancies WHERE id = ?', [agreement.tenancy_id]);
     const isRenewal = agreement.agreement_type === 'RENEWAL';
 
     if (isRenewal) {
-      const currentVer = await this.db.one<any>(
+      await this.db.update('agreements', agreementId, { status: 'EXECUTED', executed_at: new Date() });
+      if (agreement.legal_case_id) {
+        await this.db.update('legal_cases', agreement.legal_case_id, { status: 'EXECUTED', closed_at: new Date() });
+      }
+      const currentVerRenewal = await this.db.one<any>(
         'SELECT variables FROM agreement_versions WHERE agreement_id = ? AND version = ?',
         [agreementId, agreement.current_version],
       );
       let vars: any = {};
-      if (currentVer?.variables) {
-        vars = typeof currentVer.variables === 'string' ? JSON.parse(currentVer.variables) : currentVer.variables;
+      if (currentVerRenewal?.variables) {
+        vars = typeof currentVerRenewal.variables === 'string' ? JSON.parse(currentVerRenewal.variables) : currentVerRenewal.variables;
       }
       const newRent = Number(vars.rent_amount ?? tenancy.rent_amount);
       const newEndDate = agreement.effective_to ? agreement.effective_to : (vars.effective_to ?? tenancy.end_date);
@@ -457,14 +504,16 @@ export class LegalService {
       return { status: 'EXECUTED' };
     }
 
+    // Initial tenancy agreements: both parties signed, but agreement execution must wait for payment.
+    await this.db.update('agreements', agreementId, { status: 'APPROVED_BY_LEGAL' });
     await this.db.update('tenancies', agreement.tenancy_id, { stage: 'AWAITING_PAYMENT' });
 
     await this.db.insert('property_timeline', {
       property_id: tenancy.property_id,
       tenancy_id: tenancy.id,
       event_code: 'AGREEMENT_SIGNED',
-      title: 'Agreement executed',
-      detail: agreement.agreement_number,
+      title: 'Agreement signed by all parties',
+      detail: `All parties have signed agreement ${agreement.agreement_number}. Execution pending initial payment confirmation.`,
       actor_id: user.id,
     });
 
@@ -472,13 +521,13 @@ export class LegalService {
     await this.payments.raiseMoveInDues(tenancy);
 
     await this.notify.sendMany([tenancy.owner_user_id, tenancy.tenant_user_id], 'PAYMENT_DUE', {
-      title: 'Agreement executed',
+      title: 'Agreement signed by all parties',
       body: 'All parties have signed. Move-in payments are now listed in your dashboard.',
       actionUrl: '/dashboard/payments',
       severity: 'ACTION',
     });
-    await this.audit.record({ actor: user, action: 'agreement.executed', objectType: 'agreement', objectId: agreementId, req });
-    return { status: 'EXECUTED' };
+    await this.audit.record({ actor: user, action: 'agreement.signed_pending_payment', objectType: 'agreement', objectId: agreementId, req });
+    return { status: 'AWAITING_PAYMENT', pendingSignatures: 0 };
   }
 
   // -------------------------------------------------------------- meetings
@@ -554,6 +603,632 @@ export class LegalService {
   private fill(template: string, vars: Record<string, unknown>): string {
     return template.replace(/{{\s*(\w+)\s*}}/g, (_, key) => String(vars[key] ?? `{{${key}}}`));
   }
+
+  // ------------------------------------------------------------- stamping workflow
+  async submitStampingCertificate(user: AuthUser, agreementId: number, dto: SubmitStampingCertificateDto, req?: Request) {
+    const agreement = await this.db.one<any>(
+      `SELECT a.*, t.owner_user_id, t.tenant_user_id, t.property_id
+         FROM agreements a
+         JOIN tenancies t ON t.id = a.tenancy_id
+        WHERE a.id = ?`,
+      [agreementId],
+    );
+    if (!agreement) throw new NotFoundException('Agreement not found.');
+    if (['EXECUTED', 'CANCELLED', 'SUPERSEDED'].includes(agreement.status)) {
+      throw new BadRequestException(`Cannot submit stamping certificate for an agreement in '${agreement.status}' status.`);
+    }
+
+    const isParty = [agreement.owner_user_id, agreement.tenant_user_id].includes(user.id);
+    const isStaff = this.isStampingStaff(user);
+    if (!isParty && !isStaff) {
+      throw new ForbiddenException('You are not authorized to submit stamping for this agreement.');
+    }
+
+    const docId = dto.documentId ?? null;
+    if (docId) {
+      const doc = await this.db.one<any>(
+        'SELECT * FROM documents WHERE id = ? AND deleted_at IS NULL',
+        [docId],
+      );
+      if (!doc) {
+        throw new BadRequestException('The referenced document was not found.');
+      }
+      const isDocMatch =
+        doc.owner_user_id === user.id ||
+        doc.uploaded_by === user.id ||
+        (doc.context_type === 'AGREEMENT' && Number(doc.context_id) === agreementId) ||
+        (doc.context_type === 'TENANCY' && Number(doc.context_id) === agreement.tenancy_id);
+
+      if (!isDocMatch && !isStaff) {
+        throw new BadRequestException('This document does not belong to this agreement or user.');
+      }
+    }
+
+    await this.db.update('agreements', agreementId, {
+      stamp_reference: dto.certificateNumber.trim(),
+      stamp_document_id: docId ?? agreement.stamp_document_id,
+      stamp_amount: dto.stampAmount ?? agreement.stamp_amount,
+      stamp_state: dto.state ?? agreement.stamp_state,
+      stamp_duty_status: 'PENDING',
+      stamp_rejection_reason: null,
+      stamp_verified_by: null,
+      stamp_verified_at: null,
+    });
+
+    await this.audit.record({
+      actor: user,
+      action: 'agreement.stamping_submitted',
+      objectType: 'agreement',
+      objectId: agreementId,
+      metadata: {
+        certificateNumber: dto.certificateNumber,
+        state: dto.state,
+        stampAmount: dto.stampAmount,
+        documentId: docId,
+      },
+      req,
+    });
+
+    return {
+      id: agreementId,
+      stampDutyStatus: 'PENDING',
+      stampReference: dto.certificateNumber.trim(),
+      stampDocumentId: docId ?? agreement.stamp_document_id,
+    };
+  }
+
+  async uploadStampingCertificate(user: AuthUser, agreementId: number, file: Express.Multer.File, dto: SubmitStampingCertificateDto, req?: Request) {
+    const agreement = await this.db.one<any>(
+      `SELECT a.*, t.owner_user_id, t.tenant_user_id, t.property_id
+         FROM agreements a
+         JOIN tenancies t ON t.id = a.tenancy_id
+        WHERE a.id = ?`,
+      [agreementId],
+    );
+    if (!agreement) throw new NotFoundException('Agreement not found.');
+    if (['EXECUTED', 'CANCELLED', 'SUPERSEDED'].includes(agreement.status)) {
+      throw new BadRequestException(`Cannot upload stamping certificate for an agreement in '${agreement.status}' status.`);
+    }
+
+    const isParty = [agreement.owner_user_id, agreement.tenant_user_id].includes(user.id);
+    const isStaff = this.isStampingStaff(user);
+    if (!isParty && !isStaff) {
+      throw new ForbiddenException('You are not authorized to upload stamping for this agreement.');
+    }
+
+    if (!file || !file.buffer) {
+      throw new BadRequestException('A certificate file is required.');
+    }
+
+    const stored = await this.storage.store(file, `vault/${user.publicId}/agreements`);
+    const doc = await this.storage.registerDocument(
+      {
+        user,
+        file: stored,
+        category: 'AGREEMENT',
+        documentType: 'STAMPING_DOCUMENT',
+        title: `E-Stamp Certificate - ${dto.certificateNumber}`,
+        contextType: 'AGREEMENT',
+        contextId: agreementId,
+        visibility: 'PARTIES',
+      },
+      req,
+    );
+
+    await this.db.update('agreements', agreementId, {
+      stamp_reference: dto.certificateNumber.trim(),
+      stamp_document_id: doc.id,
+      stamp_amount: dto.stampAmount ?? null,
+      stamp_state: dto.state ?? null,
+      stamp_duty_status: 'PENDING',
+      stamp_rejection_reason: null,
+      stamp_verified_by: null,
+      stamp_verified_at: null,
+    });
+
+    await this.audit.record({
+      actor: user,
+      action: 'agreement.stamping_uploaded',
+      objectType: 'agreement',
+      objectId: agreementId,
+      metadata: {
+        certificateNumber: dto.certificateNumber,
+        state: dto.state,
+        stampAmount: dto.stampAmount,
+        documentId: doc.id,
+      },
+      req,
+    });
+
+    return {
+      id: agreementId,
+      stampDutyStatus: 'PENDING',
+      stampReference: dto.certificateNumber.trim(),
+      stampDocumentId: doc.id,
+    };
+  }
+
+  async verifyStamping(user: AuthUser, agreementId: number, dto: VerifyStampingDto, req?: Request) {
+    if (!this.isStampingStaff(user)) {
+      throw new ForbiddenException('Only authorized legal or city manager staff can verify stamping.');
+    }
+
+    const agreement = await this.db.one<any>(
+      `SELECT a.*, t.owner_user_id, t.tenant_user_id, t.property_id
+         FROM agreements a
+         JOIN tenancies t ON t.id = a.tenancy_id
+        WHERE a.id = ?`,
+      [agreementId],
+    );
+    if (!agreement) throw new NotFoundException('Agreement not found.');
+
+    const docId = dto.documentId ?? agreement.stamp_document_id ?? null;
+    const certNumber = dto.certificateNumber?.trim();
+    if (!certNumber) {
+      throw new BadRequestException('Certificate reference number is required.');
+    }
+
+    if (agreement.status === 'EXECUTED') {
+      // Idempotent retry: if already verified and executed with matching certificate reference, return success
+      if (agreement.stamp_duty_status === 'PAID' && agreement.stamp_reference === certNumber) {
+        this.logger.log(`Idempotent verifyStamping: Agreement #${agreementId} is already EXECUTED with certificate '${certNumber}'.`);
+        return {
+          id: agreementId,
+          stampDutyStatus: 'PAID',
+          stampReference: agreement.stamp_reference,
+          stampVerifiedBy: agreement.stamp_verified_by,
+          stampVerifiedAt: agreement.stamp_verified_at,
+          executed: true,
+        };
+      }
+      throw new BadRequestException(`Cannot verify stamping on an agreement in '${agreement.status}' status.`);
+    }
+
+    if (['CANCELLED', 'SUPERSEDED'].includes(agreement.status)) {
+      throw new BadRequestException(`Cannot verify stamping on an agreement in '${agreement.status}' status.`);
+    }
+
+    const executionResult = await this.db.transaction(async (conn) => {
+      // 1. Establish uniform lock hierarchy across services: lock tenancy FIRST
+      const [tenancyRows]: any = await conn.execute(
+        `SELECT id, property_id, stage, owner_user_id, tenant_user_id FROM tenancies WHERE id = ? FOR UPDATE`,
+        [agreement.tenancy_id],
+      );
+      const tenancyRow = tenancyRows[0];
+
+      // 2. Lock agreement SECOND
+      const [lockedAgrs]: any = await conn.execute(
+        `SELECT a.* FROM agreements a WHERE a.id = ? FOR UPDATE`,
+        [agreementId],
+      );
+      const lockedAgr = lockedAgrs[0];
+      if (!lockedAgr || ['EXECUTED', 'CANCELLED', 'SUPERSEDED'].includes(lockedAgr.status)) {
+        throw new BadRequestException(`Agreement cannot be verified in '${lockedAgr?.status}' status.`);
+      }
+
+      // 3. Update agreement stamping details
+      await conn.execute(
+        `UPDATE agreements
+            SET stamp_duty_status = 'PAID',
+                stamp_reference = ?,
+                stamp_verified_by = ?,
+                stamp_verified_at = NOW(),
+                stamp_amount = COALESCE(?, stamp_amount),
+                stamp_state = COALESCE(?, stamp_state),
+                stamp_document_id = COALESCE(?, stamp_document_id),
+                stamp_rejection_reason = NULL
+          WHERE id = ?`,
+        [certNumber, user.id, dto.stampAmount ?? null, dto.state ?? null, docId, agreementId],
+      );
+
+      if (docId) {
+        await conn.execute(
+          `UPDATE documents
+              SET verification_status = 'VERIFIED',
+                  verified_by = ?,
+                  verified_at = NOW(),
+                  internal_notes = COALESCE(?, internal_notes)
+            WHERE id = ?`,
+          [user.id, dto.notes ?? null, docId],
+        );
+      }
+
+      await conn.execute(
+        `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title, detail, actor_id)
+         VALUES (?, ?, 'STAMPING_VERIFIED', 'E-Stamp certificate verified', ?, ?)`,
+        [agreement.property_id, agreement.tenancy_id, `E-Stamp certificate ${certNumber} verified by ${user.fullName}.`, user.id],
+      );
+
+      return await this.tryExecuteAgreement(conn, agreementId, agreement.tenancy_id, user, tenancyRow);
+    });
+
+    let notificationError: string | null = null;
+    if (executionResult.executed) {
+      try {
+        await this.dispatchExecutionNotifications(executionResult);
+      } catch (err: any) {
+        notificationError = err?.message || 'Notification service error';
+        this.logger.error(
+          `Post-commit execution notification delivery failed for agreement #${agreementId} (tenancy #${executionResult.tenancyId}): ${notificationError}`,
+          err?.stack,
+        );
+      }
+    }
+
+    await this.audit.record({
+      actor: user,
+      action: 'agreement.stamping_verified',
+      objectType: 'agreement',
+      objectId: agreementId,
+      metadata: {
+        certificateNumber: certNumber,
+        state: dto.state,
+        stampAmount: dto.stampAmount,
+        documentId: docId,
+        executed: executionResult.executed,
+        notificationsDelivered: executionResult.executed ? notificationError === null : false,
+        ...(notificationError ? { notificationError } : {}),
+      },
+      req,
+    });
+
+    return {
+      id: agreementId,
+      stampDutyStatus: 'PAID',
+      stampReference: certNumber,
+      stampVerifiedBy: user.id,
+      stampVerifiedAt: new Date(),
+      executed: executionResult.executed,
+      ...(notificationError ? { notificationWarning: 'Execution completed, but party notification delivery failed.' } : {}),
+    };
+  }
+
+  async rejectStamping(user: AuthUser, agreementId: number, dto: RejectStampingDto, req?: Request) {
+    if (!this.isStampingStaff(user)) {
+      throw new ForbiddenException('Only authorized legal or city manager staff can reject stamping.');
+    }
+
+    const agreement = await this.db.one<any>(
+      `SELECT a.*, t.owner_user_id, t.tenant_user_id, t.property_id
+         FROM agreements a
+         JOIN tenancies t ON t.id = a.tenancy_id
+        WHERE a.id = ?`,
+      [agreementId],
+    );
+    if (!agreement) throw new NotFoundException('Agreement not found.');
+
+    if (['EXECUTED', 'CANCELLED', 'SUPERSEDED'].includes(agreement.status)) {
+      throw new BadRequestException(`Cannot reject stamping for an agreement in '${agreement.status}' status.`);
+    }
+
+    const reason = dto.reason?.trim();
+    if (!reason || reason.length < 3) {
+      throw new BadRequestException('A clear rejection reason is required.');
+    }
+
+    const docId = agreement.stamp_document_id ?? null;
+
+    await this.db.transaction(async (conn) => {
+      // 1. Lock tenancy FIRST
+      await conn.execute(
+        `SELECT id FROM tenancies WHERE id = ? FOR UPDATE`,
+        [agreement.tenancy_id],
+      );
+
+      // 2. Lock agreement SECOND
+      const [lockedAgrs]: any = await conn.execute(
+        `SELECT id, status FROM agreements WHERE id = ? FOR UPDATE`,
+        [agreementId],
+      );
+      if (!lockedAgrs.length || ['EXECUTED', 'CANCELLED', 'SUPERSEDED'].includes(lockedAgrs[0].status)) {
+        throw new BadRequestException(`Cannot reject stamping on an agreement in '${lockedAgrs?.[0]?.status}' status.`);
+      }
+
+      // 3. Update agreement
+      await conn.execute(
+        `UPDATE agreements
+            SET stamp_duty_status = 'PENDING',
+                stamp_rejection_reason = ?,
+                stamp_verified_by = ?,
+                stamp_verified_at = NOW()
+          WHERE id = ?`,
+        [reason, user.id, agreementId],
+      );
+
+      if (docId) {
+        await conn.execute(
+          `UPDATE documents
+              SET verification_status = 'REJECTED',
+                  rejection_reason = ?,
+                  verified_by = ?,
+                  verified_at = NOW(),
+                  internal_notes = COALESCE(?, internal_notes)
+            WHERE id = ?`,
+          [reason, user.id, dto.notes ?? null, docId],
+        );
+      }
+
+      await conn.execute(
+        `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title, detail, actor_id)
+         VALUES (?, ?, 'STAMPING_REJECTED', 'E-Stamp certificate rejected', ?, ?)`,
+        [agreement.property_id, agreement.tenancy_id, `E-Stamp certificate rejected by ${user.fullName}: ${reason}`, user.id],
+      );
+    });
+
+    await this.audit.record({
+      actor: user,
+      action: 'agreement.stamping_rejected',
+      objectType: 'agreement',
+      objectId: agreementId,
+      metadata: { reason, rejectedBy: user.id },
+      req,
+    });
+
+    await this.notify.sendMany([agreement.owner_user_id, agreement.tenant_user_id], 'STAMPING_REJECTED', {
+      title: 'E-Stamp certificate rejected',
+      body: `Your submitted e-stamp certificate was rejected: ${reason}. Please upload a valid certificate.`,
+      actionUrl: `/dashboard/agreements/${agreementId}`,
+      severity: 'ACTION',
+    });
+
+    return {
+      id: agreementId,
+      stampDutyStatus: 'PENDING',
+      stampRejectionReason: reason,
+    };
+  }
+
+  async markStampingNotApplicable(user: AuthUser, agreementId: number, dto: StampingNotApplicableDto, req?: Request) {
+    if (!this.isStampingStaff(user)) {
+      throw new ForbiddenException('Only authorized legal or city manager staff can mark stamping as not applicable.');
+    }
+
+    const agreement = await this.db.one<any>(
+      `SELECT a.*, t.owner_user_id, t.tenant_user_id, t.property_id
+         FROM agreements a
+         JOIN tenancies t ON t.id = a.tenancy_id
+        WHERE a.id = ?`,
+      [agreementId],
+    );
+    if (!agreement) throw new NotFoundException('Agreement not found.');
+
+    if (agreement.status === 'EXECUTED') {
+      if (agreement.stamp_duty_status === 'NOT_APPLICABLE') {
+        this.logger.log(`Idempotent markStampingNotApplicable: Agreement #${agreementId} is already EXECUTED with NOT_APPLICABLE.`);
+        return {
+          id: agreementId,
+          stampDutyStatus: 'NOT_APPLICABLE',
+          stampReference: 'NOT_APPLICABLE',
+          stampVerifiedBy: agreement.stamp_verified_by,
+          executed: true,
+        };
+      }
+      throw new BadRequestException(`Cannot mark stamping not applicable on an agreement in '${agreement.status}' status.`);
+    }
+
+    if (['CANCELLED', 'SUPERSEDED'].includes(agreement.status)) {
+      throw new BadRequestException(`Cannot mark stamping not applicable on an agreement in '${agreement.status}' status.`);
+    }
+
+    const reason = dto.reason?.trim();
+    if (!reason || reason.length < 3) {
+      throw new BadRequestException('A clear justification reason is required.');
+    }
+
+    const executionResult = await this.db.transaction(async (conn) => {
+      // 1. Establish uniform lock hierarchy: lock tenancy FIRST
+      const [tenancyRows]: any = await conn.execute(
+        `SELECT id, property_id, stage, owner_user_id, tenant_user_id FROM tenancies WHERE id = ? FOR UPDATE`,
+        [agreement.tenancy_id],
+      );
+      const tenancyRow = tenancyRows[0];
+
+      // 2. Lock agreement SECOND
+      const [lockedAgrs]: any = await conn.execute(
+        `SELECT a.* FROM agreements a WHERE a.id = ? FOR UPDATE`,
+        [agreementId],
+      );
+      const lockedAgr = lockedAgrs[0];
+      if (!lockedAgr || ['EXECUTED', 'CANCELLED', 'SUPERSEDED'].includes(lockedAgr.status)) {
+        throw new BadRequestException(`Cannot mark stamping not applicable on an agreement in '${lockedAgr?.status}' status.`);
+      }
+
+      // 3. Update agreement
+      await conn.execute(
+        `UPDATE agreements
+            SET stamp_duty_status = 'NOT_APPLICABLE',
+                stamp_reference = 'NOT_APPLICABLE',
+                stamp_verified_by = ?,
+                stamp_verified_at = NOW(),
+                stamp_rejection_reason = NULL
+          WHERE id = ?`,
+        [user.id, agreementId],
+      );
+
+      await conn.execute(
+        `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title, detail, actor_id)
+         VALUES (?, ?, 'STAMPING_NOT_APPLICABLE', 'Stamping marked not applicable', ?, ?)`,
+        [agreement.property_id, agreement.tenancy_id, `Stamping marked NOT_APPLICABLE by ${user.fullName}: ${reason}`, user.id],
+      );
+
+      return await this.tryExecuteAgreement(conn, agreementId, agreement.tenancy_id, user, tenancyRow);
+    });
+
+    let notificationError: string | null = null;
+    if (executionResult.executed) {
+      try {
+        await this.dispatchExecutionNotifications(executionResult);
+      } catch (err: any) {
+        notificationError = err?.message || 'Notification service error';
+        this.logger.error(
+          `Post-commit execution notification delivery failed for agreement #${agreementId} (tenancy #${executionResult.tenancyId}): ${notificationError}`,
+          err?.stack,
+        );
+      }
+    }
+
+    await this.audit.record({
+      actor: user,
+      action: 'agreement.stamping_marked_not_applicable',
+      objectType: 'agreement',
+      objectId: agreementId,
+      metadata: {
+        reason,
+        markedBy: user.id,
+        executed: executionResult.executed,
+        notificationsDelivered: executionResult.executed ? notificationError === null : false,
+        ...(notificationError ? { notificationError } : {}),
+      },
+      req,
+    });
+
+    return {
+      id: agreementId,
+      stampDutyStatus: 'NOT_APPLICABLE',
+      stampReference: 'NOT_APPLICABLE',
+      stampVerifiedBy: user.id,
+      executed: executionResult.executed,
+      ...(notificationError ? { notificationWarning: 'Execution completed, but party notification delivery failed.' } : {}),
+    };
+  }
+
+  private isStampingStaff(user: AuthUser): boolean {
+    return Boolean(
+      user.permissions.includes('legal.case.manage') ||
+      user.permissions.includes('agreement.approve') ||
+      user.permissions.includes('document.verify') ||
+      user.roles.includes('ADMIN') ||
+      user.roles.includes('SUPER_ADMIN') ||
+      user.roles.includes('PROPERTY_MANAGER') ||
+      user.roles.includes('LEGAL_TEAM'),
+    );
+  }
+
+  private async tryExecuteAgreement(
+    conn: any,
+    agreementId: number,
+    tenancyId: number,
+    actor: AuthUser,
+    lockedTenancyRow?: any,
+  ): Promise<{ executed: boolean; tenancyId?: number; ownerUserId?: number; tenantUserId?: number }> {
+    // 1. Establish uniform lock hierarchy: tenancy FIRST
+    const tenancyRow =
+      lockedTenancyRow ||
+      (await conn.execute(
+        `SELECT id, property_id, stage, owner_user_id, tenant_user_id FROM tenancies WHERE id = ? FOR UPDATE`,
+        [tenancyId],
+      ))[0]?.[0];
+    if (!tenancyRow || tenancyRow.stage !== 'AWAITING_PAYMENT') return { executed: false };
+
+    // 2. Lock agreement SECOND
+    const [agrs]: any = await conn.execute(
+      `SELECT a.* FROM agreements a WHERE a.id = ? FOR UPDATE`,
+      [agreementId],
+    );
+    const agr = agrs[0];
+    if (!agr || agr.status === 'EXECUTED') return { executed: false };
+
+    // 1. Version approval check
+    const [currVer]: any = await conn.execute(
+      `SELECT reviewed_at FROM agreement_versions WHERE agreement_id = ? AND version = ? LIMIT 1`,
+      [agr.id, agr.current_version],
+    );
+    const isVersionApproved = agr.approved_by !== null && currVer.length > 0 && currVer[0].reviewed_at !== null;
+
+    // 2. Signatories check: total >= 2, pending === 0
+    const [sigStats]: any = await conn.execute(
+      `SELECT COUNT(*) AS total_sigs,
+              SUM(CASE WHEN status = 'SIGNED' THEN 1 ELSE 0 END) AS signed_sigs,
+              SUM(CASE WHEN status <> 'SIGNED' THEN 1 ELSE 0 END) AS pending_sigs
+         FROM agreement_signatories WHERE agreement_id = ?`,
+      [agr.id],
+    );
+    const totalSigs = Number(sigStats[0]?.total_sigs || 0);
+    const pendingSigs = Number(sigStats[0]?.pending_sigs || 0);
+    const areSignatoriesComplete = totalSigs >= 2 && pendingSigs === 0;
+
+    // 3. Odibrick fee check: ALL fee obligations must be confirmed PAID (exact parity with PaymentsService)
+    const [feeRows]: any = await conn.execute(
+      `SELECT id, status FROM payments
+        WHERE tenancy_id = ? AND purpose IN ('SERVICE_FEE', 'COMMISSION')
+        FOR UPDATE`,
+      [tenancyId],
+    );
+    const hasFeeObligation = feeRows.length > 0;
+    const isFeePaid = hasFeeObligation && feeRows.every((f: any) => f.status === 'PAID');
+
+    // 4. Stamping check: verified as PAID or REGISTERED, or marked NOT_APPLICABLE by staff
+    const isStampingSatisfied =
+      (agr.stamp_duty_status === 'PAID' &&
+        agr.stamp_verified_by != null &&
+        agr.stamp_verified_at != null &&
+        Boolean(agr.stamp_reference && String(agr.stamp_reference).trim())) ||
+      (agr.stamp_duty_status === 'REGISTERED' &&
+        agr.stamp_verified_by != null &&
+        agr.stamp_verified_at != null &&
+        Boolean((agr.registration_ref && String(agr.registration_ref).trim()) || (agr.stamp_reference && String(agr.stamp_reference).trim()))) ||
+      (agr.stamp_duty_status === 'NOT_APPLICABLE' &&
+        agr.stamp_verified_by != null &&
+        agr.stamp_verified_at != null &&
+        agr.stamp_reference === 'NOT_APPLICABLE');
+
+    if (isVersionApproved && areSignatoriesComplete && isFeePaid && isStampingSatisfied && tenancyRow.stage === 'AWAITING_PAYMENT') {
+      await conn.execute(
+        `UPDATE agreements SET status = 'EXECUTED', executed_at = NOW() WHERE id = ?`,
+        [agr.id],
+      );
+      if (agr.legal_case_id) {
+        await conn.execute(
+          `UPDATE legal_cases SET status = 'EXECUTED', closed_at = NOW() WHERE id = ?`,
+          [agr.legal_case_id],
+        );
+      }
+      await conn.execute(
+        `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title, detail)
+         VALUES (?, ?, 'AGREEMENT_EXECUTED', 'Agreement executed', ?)`,
+        [tenancyRow.property_id, tenancyId, `Agreement #${agr.id} (v${agr.current_version}) legally executed following stamping verification and Odibrick service fee confirmation.`],
+      );
+      await conn.execute(`UPDATE tenancies SET stage = 'CHECK_IN_PENDING' WHERE id = ?`, [tenancyId]);
+      await conn.execute(`UPDATE properties SET status = 'RENTED' WHERE id = ?`, [tenancyRow.property_id]);
+      await conn.execute(
+        `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title)
+         VALUES (?, ?, 'PAYMENT_COMPLETED', 'Stamping verified & fee paid; move-in scheduled')`,
+        [tenancyRow.property_id, tenancyId],
+      );
+      return {
+        executed: true,
+        tenancyId,
+        ownerUserId: tenancyRow.owner_user_id,
+        tenantUserId: tenancyRow.tenant_user_id,
+      };
+    }
+    return { executed: false };
+  }
+
+  private async dispatchExecutionNotifications(execResult: {
+    executed: boolean;
+    tenancyId?: number;
+    ownerUserId?: number;
+    tenantUserId?: number;
+  }) {
+    if (!execResult.executed || !execResult.ownerUserId || !execResult.tenantUserId || !execResult.tenancyId) {
+      return;
+    }
+    await this.notify.sendMany([execResult.ownerUserId, execResult.tenantUserId], 'AGREEMENT_READY', {
+      title: 'Agreement executed',
+      body: 'Initial payment confirmed and e-stamp verified. The agreement has been formally executed and move-in check-in is pending.',
+      actionUrl: `/dashboard/tenancy/${execResult.tenancyId}`,
+      severity: 'INFO',
+    });
+    await this.notify.send(execResult.tenantUserId, 'CHECK_IN_PENDING', {
+      title: 'Document your home',
+      body: 'Record the Day 1 condition report as soon as you take possession. It protects your deposit.',
+      actionUrl: `/dashboard/tenancy/${execResult.tenancyId}/check-in`,
+      severity: 'ACTION',
+    });
+  }
+
+  // ------------------------------------------------------------- internals
 
   private assertCaseAccess(user: AuthUser, legalCase: any) {
     if (user.permissions.includes('legal.case.manage')) return;

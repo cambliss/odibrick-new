@@ -20,8 +20,11 @@ export type TenancyStage =
   | 'MOVE_OUT' | 'CLOSED' | 'CANCELLED';
 
 export type AgreementStatus =
-  | 'DRAFT' | 'LEGAL_REVIEW' | 'AWAITING_SIGNATURES' | 'PARTIALLY_SIGNED'
-  | 'EXECUTED' | 'CANCELLED' | 'EXPIRED';
+  | 'DRAFT' | 'LEGAL_REVIEW' | 'SENT_FOR_APPROVAL' | 'APPROVED_BY_LEGAL'
+  | 'AWAITING_SIGNATURES' | 'PARTIALLY_SIGNED' | 'EXECUTED' | 'CANCELLED'
+  | 'SUPERSEDED' | 'EXPIRED';
+
+export type StampDutyStatus = 'NOT_APPLICABLE' | 'PENDING' | 'PAID' | 'REGISTERED';
 
 export type PaymentStatus =
   | 'DUE' | 'INITIATED' | 'PROCESSING' | 'PAID' | 'FAILED'

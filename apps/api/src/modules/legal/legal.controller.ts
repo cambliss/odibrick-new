@@ -1,8 +1,12 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
+import {
+  Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req, UploadedFile, UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { LegalService } from './legal.service';
 import {
   ApproveAgreementDto, AssignCaseDto, DraftAgreementDto, LegalNoteDto, ScheduleMeetingDto, SignAgreementDto,
+  SubmitStampingCertificateDto, VerifyStampingDto, RejectStampingDto, StampingNotApplicableDto,
 } from './legal.dto';
 import { CurrentUser, RequirePermissions } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
@@ -106,5 +110,57 @@ export class LegalController {
     @Body('outcomeNotes') outcomeNotes: string,
   ) {
     return this.legal.completeMeeting(user, id, outcomeNotes);
+  }
+
+  @Post('agreements/:id/stamping/submit')
+  submitStamping(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: SubmitStampingCertificateDto,
+    @Req() req: Request,
+  ) {
+    return this.legal.submitStampingCertificate(user, id, dto, req);
+  }
+
+  @Post('agreements/:id/stamping/upload')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15_728_640 } }))
+  uploadStamping(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: SubmitStampingCertificateDto,
+    @Req() req: Request,
+  ) {
+    return this.legal.uploadStampingCertificate(user, id, file, dto, req);
+  }
+
+  @Post('agreements/:id/stamping/verify')
+  verifyStamping(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: VerifyStampingDto,
+    @Req() req: Request,
+  ) {
+    return this.legal.verifyStamping(user, id, dto, req);
+  }
+
+  @Post('agreements/:id/stamping/reject')
+  rejectStamping(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RejectStampingDto,
+    @Req() req: Request,
+  ) {
+    return this.legal.rejectStamping(user, id, dto, req);
+  }
+
+  @Post('agreements/:id/stamping/not-applicable')
+  stampingNotApplicable(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: StampingNotApplicableDto,
+    @Req() req: Request,
+  ) {
+    return this.legal.markStampingNotApplicable(user, id, dto, req);
   }
 }

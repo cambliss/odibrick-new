@@ -175,19 +175,29 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return result.affectedRows;
   }
 
-  /** Runs the callback inside a transaction and rolls back on any throw. */
-  async transaction<T>(fn: (conn: PoolConnection) => Promise<T>): Promise<T> {
-    const conn = await this.pool.getConnection();
-    try {
-      await conn.beginTransaction();
-      const result = await fn(conn);
-      await conn.commit();
-      return result;
-    } catch (error) {
-      await conn.rollback();
-      throw error;
-    } finally {
-      conn.release();
+  /** Runs the callback inside a transaction and rolls back on any throw. Supports bounded retry on deadlock (errno 1213). */
+  async transaction<T>(fn: (conn: PoolConnection) => Promise<T>, maxRetries = 2): Promise<T> {
+    let attempt = 0;
+    while (true) {
+      attempt++;
+      const conn = await this.pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const result = await fn(conn);
+        await conn.commit();
+        return result;
+      } catch (error: any) {
+        await conn.rollback();
+        const isDeadlock = error?.errno === 1213 || error?.code === 'ER_LOCK_DEADLOCK';
+        if (isDeadlock && attempt <= maxRetries) {
+          this.logger.warn(`Deadlock detected (errno 1213). Retrying transaction (attempt ${attempt}/${maxRetries})...`);
+          await new Promise((resolve) => setTimeout(resolve, 50 * Math.pow(2, attempt - 1)));
+          continue;
+        }
+        throw error;
+      } finally {
+        conn.release();
+      }
     }
   }
 
