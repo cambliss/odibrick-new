@@ -4,10 +4,10 @@
  *
  * Applies every .sql file in database/migrations in filename order, records
  * each one in schema_migrations, and skips anything already applied. Safe to
- * re-run; it is the only supported way to change the schema.
+ * re-run; it is the dedicated CLI tool for deliberate schema changes.
  *
  *   node database/migrate.js            apply pending migrations
- *   node database/migrate.js --status   show what is applied and what is pending
+ *   node database/migrate.js --status   inspect applied and pending migrations (read-only)
  */
 const fs = require('fs');
 const path = require('path');
@@ -42,8 +42,40 @@ async function main() {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'odibrick',
     ssl,
-    multipleStatements: true,
+    multipleStatements: !statusOnly,
   });
+
+  const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+
+  if (statusOnly) {
+    let applied = [];
+    try {
+      const [rows] = await conn.query('SELECT filename, checksum FROM schema_migrations');
+      applied = rows;
+    } catch (err) {
+      if (err.code !== 'ER_NO_SUCH_TABLE' && err.errno !== 1146) {
+        await conn.end();
+        throw err;
+      }
+    }
+    const appliedMap = new Map(applied.map((r) => [r.filename, r.checksum]));
+    let pendingCount = 0;
+    for (const file of files) {
+      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+      const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+      if (!appliedMap.has(file)) {
+        pendingCount += 1;
+        console.log(`  PENDING   ${file}`);
+      } else if (appliedMap.get(file) !== checksum) {
+        console.log(`  MISMATCH  ${file}`);
+      } else {
+        console.log(`  applied   ${file}`);
+      }
+    }
+    console.log(`\nSummary: ${appliedMap.size} applied, ${pendingCount} pending.`);
+    await conn.end();
+    return;
+  }
 
   await conn.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -56,16 +88,6 @@ async function main() {
 
   const [applied] = await conn.query('SELECT filename, checksum FROM schema_migrations');
   const appliedMap = new Map(applied.map((r) => [r.filename, r.checksum]));
-
-  const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
-
-  if (statusOnly) {
-    for (const file of files) {
-      console.log(`${appliedMap.has(file) ? '  applied' : '  PENDING'}  ${file}`);
-    }
-    await conn.end();
-    return;
-  }
 
   let count = 0;
   for (const file of files) {

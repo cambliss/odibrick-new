@@ -48,16 +48,37 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       namedPlaceholders: false,
       multipleStatements: false,
     });
-    const conn = await this.pool.getConnection();
-    await conn.ping();
-    conn.release();
-    this.logger.log(`Connected to MySQL ${db.host}:${db.port}/${db.database}`);
 
-    // Auto-run schema migrations idempotently on startup
-    await this.runMigrations(db, ssl);
+    try {
+      const conn = await this.pool.getConnection();
+      await conn.ping();
+      conn.release();
+      this.logger.log(`Connected to MySQL ${db.host}:${db.port}/${db.database}`);
+
+      // Verify migration state on startup; only execute DDL if explicitly opted in via AUTO_RUN_MIGRATIONS=true
+      await this.verifyOrRunMigrations(db, ssl);
+    } catch (error) {
+      await this.pool?.end().catch(() => undefined);
+      throw error;
+    }
   }
 
-  private async runMigrations(db: any, ssl: any): Promise<void> {
+  /**
+   * Returns true ONLY when AUTO_RUN_MIGRATIONS has the exact string value 'true'.
+   * By default, startup never executes DDL automatically.
+   */
+  isAutoMigrationEnabled(db?: any): boolean {
+    if (db?.autoRunMigrations !== undefined) {
+      return db.autoRunMigrations === 'true';
+    }
+    const configured = this.config.get<string>('db.autoRunMigrations');
+    if (configured !== undefined) {
+      return configured === 'true';
+    }
+    return process.env.AUTO_RUN_MIGRATIONS === 'true';
+  }
+
+  private resolveMigrationsDir(): string | null {
     const candidates = [
       path.resolve(process.cwd(), 'database/migrations'),
       path.resolve(process.cwd(), '../../database/migrations'),
@@ -66,16 +87,67 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       path.resolve(__dirname, '../../database/migrations'),
     ];
 
-    let migrationsDir: string | null = null;
     for (const dir of candidates) {
       if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
-        migrationsDir = dir;
-        break;
+        return dir;
       }
     }
+    return null;
+  }
 
+  private async verifyOrRunMigrations(db: any, ssl: any): Promise<void> {
+    const migrationsDir = this.resolveMigrationsDir();
     if (!migrationsDir) {
-      this.logger.warn('Migrations directory not found, skipping startup migration check.');
+      this.logger.warn('Migrations directory not found, skipping startup migration verification.');
+      return;
+    }
+
+    const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+    const diskMigrations = files.map((file) => {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      const checksum = crypto.createHash('sha256').update(sql).digest('hex');
+      return { file, sql, checksum };
+    });
+
+    const autoRun = this.isAutoMigrationEnabled(db);
+
+    if (!autoRun) {
+      let appliedRows: Array<{ filename: string; checksum: string }> = [];
+      try {
+        appliedRows = await this.query<{ filename: string; checksum: string }>(
+          'SELECT filename, checksum FROM schema_migrations',
+        );
+      } catch (err: any) {
+        if (err?.code === 'ER_NO_SUCH_TABLE' || err?.errno === 1146) {
+          appliedRows = [];
+        } else {
+          throw err;
+        }
+      }
+
+      const appliedMap = new Map(appliedRows.map((r) => [r.filename, r.checksum]));
+      for (const m of diskMigrations) {
+        if (appliedMap.has(m.file) && appliedMap.get(m.file) !== m.checksum) {
+          this.logger.warn(
+            `Migration ${m.file} has changed since it was applied. Add a new migration instead of editing an applied one.`,
+          );
+        }
+      }
+
+      const pendingFiles = diskMigrations.filter((m) => !appliedMap.has(m.file)).map((m) => m.file);
+      if (pendingFiles.length > 0) {
+        const diagnostic =
+          `Pending database migration(s) detected while automatic startup migrations are disabled ` +
+          `(${pendingFiles.length} pending: ${pendingFiles.join(', ')}). ` +
+          `Inspect with "npm run db:status" and apply deliberately with "npm run db:migrate" ` +
+          `(or set AUTO_RUN_MIGRATIONS=true to opt in).`;
+        this.logger.error(diagnostic);
+        throw new Error(diagnostic);
+      }
+
+      this.logger.log(
+        `Database schema verified (${appliedMap.size} migration(s) applied; AUTO_RUN_MIGRATIONS is disabled).`,
+      );
       return;
     }
 
@@ -103,31 +175,40 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       const [applied] = await migConn.query<any[]>('SELECT filename, checksum FROM schema_migrations');
       const appliedMap = new Map(applied.map((r: any) => [r.filename, r.checksum]));
 
-      const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
       let count = 0;
-
-      for (const file of files) {
-        const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-        const checksum = crypto.createHash('sha256').update(sql).digest('hex');
-
-        if (appliedMap.has(file)) {
+      for (const m of diskMigrations) {
+        if (appliedMap.has(m.file)) {
+          if (appliedMap.get(m.file) !== m.checksum) {
+            this.logger.warn(
+              `Migration ${m.file} has changed since it was applied. Add a new migration instead of editing an applied one.`,
+            );
+          }
           continue;
         }
 
-        this.logger.log(`Applying migration ${file}...`);
-        await migConn.query(sql);
-        await migConn.query('INSERT INTO schema_migrations (filename, checksum) VALUES (?, ?)', [file, checksum]);
-        count++;
+        this.logger.log(`Applying migration ${m.file} (AUTO_RUN_MIGRATIONS=true)...`);
+        try {
+          await migConn.query(m.sql);
+          await migConn.query('INSERT INTO schema_migrations (filename, checksum) VALUES (?, ?)', [
+            m.file,
+            m.checksum,
+          ]);
+          count++;
+        } catch (fileErr: any) {
+          const msg = `Database migration failed during startup on ${m.file}: ${fileErr.message}`;
+          this.logger.error(msg, fileErr.stack);
+          throw new Error(msg);
+        }
       }
 
       if (count > 0) {
         this.logger.log(`Successfully applied ${count} database migration(s).`);
+      } else {
+        this.logger.log(`Database schema is already up to date (${appliedMap.size} migration(s) applied).`);
       }
-    } catch (err: any) {
-      this.logger.error(`Database migration failed during startup: ${err.message}`, err.stack);
     } finally {
       if (migConn) {
-        await migConn.end();
+        await migConn.end().catch(() => undefined);
       }
     }
   }

@@ -28,6 +28,7 @@ export default () => ({
     sslCa: process.env.DB_SSL_CA ?? '',
     sslCaCert: process.env.DB_SSL_CA_CERT ?? '',
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT ?? '15', 10),
+    autoRunMigrations: process.env.AUTO_RUN_MIGRATIONS ?? 'false',
   },
   auth: {
     accessSecret: process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret',

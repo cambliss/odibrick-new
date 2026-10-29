@@ -115,7 +115,27 @@ export class KycService {
     };
   }
 
+  private assertContactVerifiedUser(user: AuthUser): void {
+    if (user.emailVerified === false && user.phoneVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before submitting KYC.',
+      );
+    }
+    if (user.emailVerified === false) {
+      throw new ForbiddenException('Verify your email address via OTP before submitting KYC.');
+    }
+    if (user.phoneVerified === false) {
+      throw new ForbiddenException('Verify your mobile number via OTP before submitting KYC.');
+    }
+    if (user.contactVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before submitting KYC.',
+      );
+    }
+  }
+
   async submit(user: AuthUser, dto: SubmitKycDto, req?: Request) {
+    this.assertContactVerifiedUser(user);
     const existing = await this.db.one<any>(
       'SELECT id, status FROM kyc_records WHERE user_id = ? ORDER BY id DESC LIMIT 1',
       [user.id],

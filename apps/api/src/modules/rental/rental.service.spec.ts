@@ -58,6 +58,19 @@ describe('RentalService', () => {
   });
 
   describe('createEnquiry', () => {
+    it('blocks enquiry creation when email or mobile OTP verification is incomplete', async () => {
+      const unverifiedTenant: AuthUser = {
+        ...tenant,
+        emailVerified: true,
+        phoneVerified: false,
+        contactVerified: false,
+      };
+      await expect(service.createEnquiry(unverifiedTenant, { propertyId: 101 })).rejects.toThrow(
+        /Verify your mobile number via OTP/i,
+      );
+      expect(db.insert).not.toHaveBeenCalled();
+    });
+
     it('disallows an owner from enquiring about their own property', async () => {
       (db.one as jest.Mock).mockResolvedValueOnce({ id: 101, listed_by_user_id: owner.id, title: 'Villa' });
       await expect(service.createEnquiry(owner, { propertyId: 101 })).rejects.toThrow(

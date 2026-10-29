@@ -189,8 +189,28 @@ export class PropertiesService {
     await this.db.execute('UPDATE properties SET view_count = view_count + 1 WHERE id = ?', [propertyId]);
   }
 
+  private assertContactVerifiedUser(user: AuthUser): void {
+    if (user.emailVerified === false && user.phoneVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before performing this action.',
+      );
+    }
+    if (user.emailVerified === false) {
+      throw new ForbiddenException('Verify your email address via OTP before performing this action.');
+    }
+    if (user.phoneVerified === false) {
+      throw new ForbiddenException('Verify your mobile number via OTP before performing this action.');
+    }
+    if (user.contactVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before performing this action.',
+      );
+    }
+  }
+
   // --------------------------------------------------------- create / wizard
   async create(user: AuthUser, dto: CreatePropertyDto, req?: Request) {
+    this.assertContactVerifiedUser(user);
     const listerRole = this.resolveListerRole(user);
     const partyIds = await this.partyIds(user.id);
 
@@ -333,6 +353,7 @@ export class PropertiesService {
 
   /** Wizard step 10: hand the listing to the verification team. */
   async submitForVerification(user: AuthUser, id: number, req?: Request) {
+    this.assertContactVerifiedUser(user);
     const property = await this.assertCanEdit(user, id);
     const missing = this.missingForPublish(property);
     if (missing.length) {

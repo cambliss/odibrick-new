@@ -63,6 +63,18 @@ describe('PropertiesService', () => {
     await expect(service.update(stranger, 1, {} as any)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('blocks property creation when email or mobile OTP verification is incomplete', async () => {
+    const unverifiedOwner: AuthUser = {
+      ...owner,
+      emailVerified: false,
+      phoneVerified: true,
+      contactVerified: false,
+    };
+    await expect(service.create(unverifiedOwner, {} as any)).rejects.toThrow(
+      /Verify your email address via OTP/i,
+    );
+  });
+
   it('blocks submission until the listing is complete', async () => {
     (db.one as jest.Mock).mockResolvedValue({
       id: 1, listed_by_user_id: 10, status: 'DRAFT', title: 'Flat', listing_type: 'RENT',

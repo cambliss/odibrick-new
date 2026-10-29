@@ -20,8 +20,28 @@ export class RentalService {
     private readonly notify: NotificationsService,
   ) {}
 
+  private assertContactVerifiedUser(user: AuthUser): void {
+    if (user.emailVerified === false && user.phoneVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before performing this action.',
+      );
+    }
+    if (user.emailVerified === false) {
+      throw new ForbiddenException('Verify your email address via OTP before performing this action.');
+    }
+    if (user.phoneVerified === false) {
+      throw new ForbiddenException('Verify your mobile number via OTP before performing this action.');
+    }
+    if (user.contactVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before performing this action.',
+      );
+    }
+  }
+
   // ------------------------------------------------------------- enquiries
   async createEnquiry(user: AuthUser, dto: CreateEnquiryDto, req?: Request) {
+    this.assertContactVerifiedUser(user);
     const property = await this.activeProperty(dto.propertyId);
     if (property.listed_by_user_id === user.id) {
       throw new BadRequestException('You cannot enquire about your own listing.');
@@ -94,6 +114,7 @@ export class RentalService {
 
   // -------------------------------------------------------------- viewings
   async requestViewing(user: AuthUser, dto: CreateViewingDto) {
+    this.assertContactVerifiedUser(user);
     const property = await this.activeProperty(dto.propertyId);
     const scheduledDate = new Date(dto.scheduledFor);
     if (isNaN(scheduledDate.getTime())) {
@@ -149,6 +170,7 @@ export class RentalService {
 
   // ----------------------------------------------------------- applications
   async apply(user: AuthUser, dto: CreateApplicationDto, req?: Request) {
+    this.assertContactVerifiedUser(user);
     const property = await this.activeProperty(dto.propertyId);
     if (property.listed_by_user_id === user.id) {
       throw new BadRequestException('You cannot apply to your own listing.');

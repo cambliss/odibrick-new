@@ -17,8 +17,18 @@ export function LoginForm({ next }: { next?: string }) {
     setBusy(true);
     setError(null);
     try {
-      await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      router.push(next ?? '/dashboard');
+      const res = await api<{
+        user?: { contactVerified?: boolean };
+        verificationRequired?: boolean;
+      }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      if (res?.verificationRequired) {
+        const verifyTarget = next
+          ? `/verify-contact?next=${encodeURIComponent(next)}`
+          : '/verify-contact';
+        router.push(verifyTarget);
+      } else {
+        router.push(next ?? '/dashboard');
+      }
       router.refresh();
     } catch (err) {
       // The API deliberately returns one message for both wrong email and

@@ -142,6 +142,13 @@ export class UsersService {
     ]);
 
     const tasks: Array<{ label: string; href: string; severity: string }> = [];
+    if (user.contactVerified === false || user.emailVerified === false || user.phoneVerified === false) {
+      tasks.push({
+        label: 'Verify your email and mobile number via OTP',
+        href: '/verify-contact',
+        severity: 'ACTION',
+      });
+    }
     if (!kyc || kyc.status !== 'VERIFIED') {
       tasks.push({
         label: kyc?.status === 'SUBMITTED' ? 'Identity verification in progress' : 'Verify your identity to list or apply',
