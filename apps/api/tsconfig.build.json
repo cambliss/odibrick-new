@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src"
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "tests",
+    "**/__tests__/**",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "**/*.e2e-spec.ts"
+  ]
+}
