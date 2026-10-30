@@ -11,6 +11,13 @@ export const dynamic = 'force-dynamic';
 type Summary = {
   kycStatus: string;
   unreadNotifications: number;
+  profileCompletion?: {
+    isComplete: boolean;
+    percentage: number;
+    completedCount: number;
+    totalRequired: number;
+    missingFields: string[];
+  };
   tasks: Array<{ label: string; href: string; severity: string }>;
   stats: {
     active_listings: number;
@@ -69,6 +76,26 @@ export default async function DashboardPage() {
         <p className="eyebrow">{greeting}</p>
         <h1 className="mt-2 font-display text-3xl font-semibold">{me.fullName.split(' ')[0]}</h1>
       </div>
+
+      {/* ------------------------------------------------ profile completion */}
+      {summary.profileCompletion && !summary.profileCompletion.isComplete ? (
+        <Card className="border-ochre/40 bg-ochre-soft/20">
+          <CardHeader
+            title={`Complete your profile (${summary.profileCompletion.percentage}%)`}
+            note="Add your city, preferred localities, and role-specific preferences so we can match you with the right homes and locality captain. You can continue browsing properties at any time."
+            action={
+              <Link href="/dashboard/profile">
+                <Button size="sm">Complete profile →</Button>
+              </Link>
+            }
+          />
+          <div className="px-5 pb-5">
+            <p className="text-xs font-medium text-muted">
+              Missing fields: {summary.profileCompletion.missingFields.join(' · ')}
+            </p>
+          </div>
+        </Card>
+      ) : null}
 
       {/* ------------------------------------------------------ next actions */}
       <Card>

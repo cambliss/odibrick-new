@@ -46,22 +46,51 @@ export class PersonalizationService {
 
   async getPreferences(userId: number): Promise<UserPropertyPreferences | null> {
     const row = await this.db.one<any>(
-      `SELECT id, user_id, preferred_city, preferred_locality, property_type,
-              min_bhk, max_bhk, min_rent, max_rent, furnishing, preferred_amenities,
-              min_carpet_area_sqft, preferred_lease_duration_months, move_in_timeframe,
-              tenant_type, created_at, updated_at
-         FROM user_property_preferences
-        WHERE user_id = ?`,
+      `SELECT upp.id, upp.user_id, upp.preferred_city, upp.preferred_locality, upp.property_type,
+              upp.min_bhk, upp.max_bhk, upp.min_rent, upp.max_rent, upp.furnishing, upp.preferred_amenities,
+              upp.min_carpet_area_sqft, upp.preferred_lease_duration_months, upp.move_in_timeframe,
+              upp.tenant_type, upp.created_at, upp.updated_at,
+              up.preferences AS profile_preferences
+         FROM user_property_preferences upp
+         LEFT JOIN user_profiles up ON up.user_id = upp.user_id
+        WHERE upp.user_id = ?`,
       [userId],
     );
 
     if (!row) return null;
+
+    let parsedProfilePrefs: Record<string, any> = {};
+    if (row.profile_preferences) {
+      if (typeof row.profile_preferences === 'string') {
+        try {
+          parsedProfilePrefs = JSON.parse(row.profile_preferences);
+        } catch {
+          parsedProfilePrefs = {};
+        }
+      } else if (typeof row.profile_preferences === 'object') {
+        parsedProfilePrefs = row.profile_preferences;
+      }
+    }
+
+    const preferredLocalities: string[] = Array.isArray(parsedProfilePrefs.preferredLocalities) &&
+      parsedProfilePrefs.preferredLocalities.length > 0
+      ? parsedProfilePrefs.preferredLocalities.map((s: any) => String(s).trim()).filter(Boolean)
+      : row.preferred_locality
+        ? String(row.preferred_locality).split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+
+    const preferredBhk: number[] = Array.isArray(parsedProfilePrefs.preferredBhk) &&
+      parsedProfilePrefs.preferredBhk.length > 0
+      ? parsedProfilePrefs.preferredBhk.map((n: any) => Number(n)).filter((n: number) => Number.isInteger(n) && n >= 1)
+      : [];
 
     return {
       id: row.id,
       userId: row.user_id,
       preferredCity: row.preferred_city,
       preferredLocality: row.preferred_locality,
+      preferredLocalities,
+      preferredBhk,
       propertyType: row.property_type,
       minBhk: row.min_bhk,
       maxBhk: row.max_bhk,
@@ -570,17 +599,32 @@ export class PersonalizationService {
     // 1. Location Match (25 pts)
     const targetCity = criteria.preferredCity || criteria.city;
     const targetLocality = criteria.preferredLocality || criteria.locality;
+    const targetLocalities: string[] =
+      Array.isArray(criteria.preferredLocalities) && criteria.preferredLocalities.length > 0
+        ? criteria.preferredLocalities.map((s: any) => String(s).trim()).filter(Boolean)
+        : targetLocality
+          ? String(targetLocality)
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : [];
 
     if (targetCity) {
       if (property.city?.toLowerCase() === targetCity.toLowerCase()) {
         locationScore += 15;
         matchedCriteria.push(`City matches: ${property.city}`);
 
-        if (targetLocality && property.locality?.toLowerCase().includes(targetLocality.toLowerCase())) {
+        const propLocalityLower = property.locality?.toLowerCase() || '';
+        const matchedLoc = targetLocalities.find((loc) =>
+          propLocalityLower.includes(loc.toLowerCase()),
+        );
+        if (targetLocalities.length > 0 && matchedLoc) {
           locationScore += 10;
           matchedCriteria.push(`Locality matches: ${property.locality}`);
-        } else if (targetLocality) {
-          unmatchedCriteria.push(`Different locality: ${property.locality} (expected ${targetLocality})`);
+        } else if (targetLocalities.length > 0) {
+          unmatchedCriteria.push(
+            `Different locality: ${property.locality} (expected ${targetLocalities.join(' or ')})`,
+          );
         } else {
           locationScore += 10; // full locality score if no target locality specified
         }
@@ -615,11 +659,23 @@ export class PersonalizationService {
     }
 
     // 3. BHK Match (20 pts)
+    const preferredBhkList: number[] =
+      Array.isArray(criteria.preferredBhk) && criteria.preferredBhk.length > 0
+        ? criteria.preferredBhk.map((n: any) => Number(n)).filter((n: number) => Number.isInteger(n))
+        : [];
     const minBhk = criteria.minBhk !== undefined && criteria.minBhk !== null ? Number(criteria.minBhk) : null;
     const maxBhk = criteria.maxBhk !== undefined && criteria.maxBhk !== null ? Number(criteria.maxBhk) : null;
     const bedrooms = Number(property.bedrooms || 0);
 
-    if (minBhk !== null || maxBhk !== null) {
+    if (preferredBhkList.length > 0) {
+      if (preferredBhkList.includes(bedrooms)) {
+        bhkScore = 20;
+        matchedCriteria.push(`${bedrooms} BHK configuration matches requirement`);
+      } else {
+        bhkScore = 0;
+        unmatchedCriteria.push(`${bedrooms} BHK configuration differs from target`);
+      }
+    } else if (minBhk !== null || maxBhk !== null) {
       const lowerBhk = minBhk !== null ? minBhk : 0;
       const upperBhk = maxBhk !== null ? maxBhk : Infinity;
 

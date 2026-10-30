@@ -6,7 +6,6 @@ import { ALLOW_UNVERIFIED_CONTACT_KEY, IS_PUBLIC_KEY } from './decorators';
 import { AuthUser, STAFF_ROLES } from './auth.types';
 
 const EXEMPT_PATH_PATTERNS = [
-  /^\/(?:api\/)?me\/profile$/i,
   /^\/(?:api\/)?notifications\/read$/i,
 ];
 

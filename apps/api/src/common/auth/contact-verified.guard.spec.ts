@@ -80,14 +80,48 @@ describe('ContactVerifiedGuard — Protected Action Enforcement', () => {
     expect(db.one).not.toHaveBeenCalled();
   });
 
-  it('preserves access to /api/me/profile while onboarding is incomplete', async () => {
+  it('preserves read-only GET /api/me/profile access while onboarding is incomplete', async () => {
     const ctx = makeContext({
-      method: 'PATCH',
+      method: 'GET',
       path: '/api/me/profile',
       user: clientUser,
     });
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(db.one).not.toHaveBeenCalled();
+  });
+
+  it('blocks PATCH /api/me/profile when email or mobile is unverified', async () => {
+    (db.one as jest.Mock).mockResolvedValueOnce({
+      status: 'PENDING',
+      email_verified_at: new Date(),
+      phone_verified_at: null,
+    });
+
+    const ctx = makeContext({
+      method: 'PATCH',
+      path: '/api/me/profile',
+      user: { ...clientUser },
+    });
+
+    await expect(guard.canActivate(ctx)).rejects.toThrow(
+      /Verify your mobile number via OTP before performing this action/i,
+    );
+  });
+
+  it('allows PATCH /api/me/profile once both email and mobile are verified', async () => {
+    (db.one as jest.Mock).mockResolvedValueOnce({
+      status: 'ACTIVE',
+      email_verified_at: new Date(),
+      phone_verified_at: new Date(),
+    });
+
+    const ctx = makeContext({
+      method: 'PATCH',
+      path: '/api/me/profile',
+      user: { ...clientUser },
+    });
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
   it('blocks protected actions when both email and mobile are unverified', async () => {

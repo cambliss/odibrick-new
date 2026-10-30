@@ -175,11 +175,20 @@ export function VerifyContactClient({
             <div className="flex flex-wrap gap-3">
               <Button
                 onClick={() => {
+                  router.push('/dashboard/profile');
+                  router.refresh();
+                }}
+              >
+                Complete your profile →
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
                   router.push(nextUrl);
                   router.refresh();
                 }}
               >
-                Continue to dashboard →
+                Continue to dashboard
               </Button>
               <Link
                 href="/properties"
