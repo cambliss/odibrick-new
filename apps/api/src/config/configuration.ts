@@ -58,4 +58,35 @@ export default () => ({
     email: process.env.NOTIFICATION_EMAIL_PROVIDER ?? 'log',
     sms: process.env.NOTIFICATION_SMS_PROVIDER ?? 'log',
   },
+  /**
+   * Passport-first KYC (Phase 3A). These keys are deliberately independent of
+   * FIELD_ENCRYPTION_KEY and every auth/OTP secret. No defaults: when a key is
+   * missing, KYC submission fails closed (see KycCryptoService).
+   * Rotation: set the new key + bumped *_VERSION, move the old key/version into
+   * *_PREVIOUS / *_PREVIOUS_VERSION until existing rows are re-keyed.
+   */
+  kyc: {
+    hmacKey: process.env.KYC_HMAC_KEY ?? '',
+    hmacKeyVersion: parseInt(process.env.KYC_HMAC_KEY_VERSION ?? '1', 10),
+    hmacKeyPrevious: process.env.KYC_HMAC_KEY_PREVIOUS ?? '',
+    hmacKeyPreviousVersion: parseInt(process.env.KYC_HMAC_KEY_PREVIOUS_VERSION ?? '0', 10),
+    encryptionKey: process.env.KYC_ENCRYPTION_KEY ?? '',
+    encryptionKeyVersion: parseInt(process.env.KYC_ENCRYPTION_KEY_VERSION ?? '1', 10),
+    encryptionKeyPrevious: process.env.KYC_ENCRYPTION_KEY_PREVIOUS ?? '',
+    encryptionKeyPreviousVersion: parseInt(process.env.KYC_ENCRYPTION_KEY_PREVIOUS_VERSION ?? '0', 10),
+    /** IP / user-agent on consent rows: off until the privacy policy approves it. */
+    captureConsentMetadata: process.env.KYC_CONSENT_CAPTURE_METADATA === 'true',
+    /**
+     * Retention is configuration only in Phase 3A: no purge job exists and no
+     * duration is assumed. Unset (null) means "no automated deletion".
+     */
+    retention: {
+      documentDays: process.env.KYC_DOCUMENT_RETENTION_DAYS
+        ? parseInt(process.env.KYC_DOCUMENT_RETENTION_DAYS, 10)
+        : null,
+      numberDataDays: process.env.KYC_NUMBER_RETENTION_DAYS
+        ? parseInt(process.env.KYC_NUMBER_RETENTION_DAYS, 10)
+        : null,
+    },
+  },
 });
