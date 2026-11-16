@@ -27,6 +27,11 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    const trimmedPhone = phone.trim();
+    if (!/^[0-9]{10}$|^\+[0-9]{11,14}$/.test(trimmedPhone)) {
+      setError('Enter a valid 10-digit mobile number.');
+      return;
+    }
     if (!accepted) {
       setError('Please accept the terms of use and privacy policy to continue.');
       return;
@@ -34,11 +39,29 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
     setBusy(true);
     setError(null);
     try {
-      await api('/auth/register', {
+      const res = await api<{
+        user?: { contactVerified?: boolean };
+        verificationRequired?: boolean;
+      }>('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ fullName, email, phone: phone || undefined, password, role }),
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          phone: trimmedPhone,
+          password,
+          role,
+          termsAccepted: accepted,
+          termsVersion: 'v1.0',
+        }),
       });
-      router.push(next ?? '/dashboard');
+      const verifyTarget = next
+        ? `/verify-contact?next=${encodeURIComponent(next)}`
+        : '/verify-contact';
+      if (res?.verificationRequired !== false && !res?.user?.contactVerified) {
+        router.push(verifyTarget);
+      } else {
+        router.push(next ?? '/dashboard');
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create the account. Try again.');
@@ -77,6 +100,7 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
         <input
           id="fullName"
           required
+          minLength={2}
           autoComplete="name"
           aria-invalid={!!error}
           aria-describedby={error ? 'register-error' : undefined}
@@ -105,13 +129,17 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
         </div>
         <div>
           <label className="label" htmlFor="phone">
-            Mobile <span className="font-normal text-muted">(optional)</span>
+            Mobile number
           </label>
           <input
             id="phone"
             type="tel"
+            required
+            pattern="^[0-9]{10}$|^\+[0-9]{11,14}$"
             inputMode="tel"
             autoComplete="tel"
+            aria-invalid={!!error}
+            aria-describedby={error ? 'register-error' : undefined}
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             className="field"
@@ -154,6 +182,7 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
         <input
           id="accept-terms"
           type="checkbox"
+          required
           checked={accepted}
           onChange={(event) => setAccepted(event.target.checked)}
           className="mt-1 accent-seal"
@@ -174,12 +203,12 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
       {error ? <ErrorNote id="register-error">{error}</ErrorNote> : null}
 
       <Button type="submit" disabled={busy} full size="lg">
-        {busy ? 'Creating account…' : 'Create account'}
+        {busy ? 'Creating account…' : 'Create account & send OTP'}
       </Button>
 
       <p className="hint">
-        Identity verification comes next. You need it before listing a property or applying for one, and
-        it is reviewed by our team rather than approved automatically.
+        Next, you will confirm your email address and mobile number with a one-time password (OTP). Identity
+        (KYC) verification is separate and reviewed by our team before listing or applying.
       </p>
     </form>
   );

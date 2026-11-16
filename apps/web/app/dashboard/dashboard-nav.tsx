@@ -42,6 +42,7 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: 'Account',
     items: [
+      { href: '/dashboard/profile', label: 'My Profile' },
       { href: '/dashboard/documents', label: 'Documents & Vault' },
       { href: '/dashboard/kyc', label: 'Identity & KYC' },
       // { href: '/dashboard/support', label: 'Support' },

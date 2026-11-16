@@ -397,3 +397,285 @@ export function ApproveAgreementButton({
     </div>
   );
 }
+
+/* ---------------------------------------------------- Staff Stamping Verification */
+export function StampingVerificationAction({
+  agreement,
+}: {
+  agreement: {
+    id: number;
+    agreement_number: string;
+    status: string;
+    stamp_duty_status: string;
+    stamp_reference?: string;
+    stamp_document_id?: number;
+    stamp_verified_by_name?: string;
+    stamp_verified_at?: string;
+    stamp_amount?: number;
+    stamp_state?: string;
+    stamp_rejection_reason?: string;
+    stamp_document_title?: string;
+  };
+}) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [isOpen, setIsOpen] = useState(false);
+  const [mode, setMode] = useState<'VERIFY' | 'REJECT' | 'NOT_APPLICABLE'>('VERIFY');
+  const [certNum, setCertNum] = useState(agreement.stamp_reference || '');
+  const [state, setState] = useState(agreement.stamp_state || 'Karnataka');
+  const [amount, setAmount] = useState(agreement.stamp_amount ? String(agreement.stamp_amount) : '');
+  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  if (['CANCELLED', 'SUPERSEDED'].includes(agreement.status)) {
+    return null;
+  }
+
+  const isVerified = ['PAID', 'REGISTERED'].includes(agreement.stamp_duty_status) && agreement.stamp_verified_at;
+  const isNotApplicable = agreement.stamp_duty_status === 'NOT_APPLICABLE';
+  const isRejected = Boolean(agreement.stamp_rejection_reason);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      if (mode === 'VERIFY') {
+        if (!certNum.trim()) {
+          setError('Certificate number is required to verify stamping.');
+          return;
+        }
+        await api(`/agreements/${agreement.id}/stamping/verify`, {
+          method: 'POST',
+          body: JSON.stringify({
+            certificateNumber: certNum.trim(),
+            state: state.trim() || undefined,
+            stampAmount: amount ? Number(amount) : undefined,
+            notes: notes.trim() || undefined,
+          }),
+        });
+      } else if (mode === 'REJECT') {
+        if (!reason.trim()) {
+          setError('A clear rejection reason is required.');
+          return;
+        }
+        await api(`/agreements/${agreement.id}/stamping/reject`, {
+          method: 'POST',
+          body: JSON.stringify({
+            reason: reason.trim(),
+            notes: notes.trim() || undefined,
+          }),
+        });
+      } else if (mode === 'NOT_APPLICABLE') {
+        if (!reason.trim()) {
+          setError('A justification reason is required to mark stamping not applicable.');
+          return;
+        }
+        await api(`/agreements/${agreement.id}/stamping/not-applicable`, {
+          method: 'POST',
+          body: JSON.stringify({
+            reason: reason.trim(),
+          }),
+        });
+      }
+      setIsOpen(false);
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Operation failed.');
+    }
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-2">
+        {isVerified ? (
+          <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-1 font-mono text-[11px] font-semibold text-emerald-800 border border-emerald-200">
+            ✓ Stamped ({agreement.stamp_reference})
+          </span>
+        ) : isNotApplicable ? (
+          <span className="inline-flex items-center gap-1 rounded bg-stone-100 px-2 py-1 font-mono text-[11px] font-medium text-stone-700 border border-stone-200">
+            Stamping N/A
+          </span>
+        ) : isRejected ? (
+          <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-1 font-mono text-[11px] font-semibold text-amber-800 border border-amber-200">
+            ⚠ Stamp Rejected
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-1 font-mono text-[11px] font-semibold text-blue-800 border border-blue-200">
+            Stamp Pending
+          </span>
+        )}
+
+        {agreement.status !== 'EXECUTED' ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setIsOpen(true);
+              setMode('VERIFY');
+              setError(null);
+            }}
+          >
+            {isVerified ? 'Update Stamping' : 'Verify Stamping'}
+          </Button>
+        ) : null}
+      </div>
+
+      {isOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-card border border-line bg-white p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h3 className="font-semibold text-base">E-Stamping Verification</h3>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="text-muted hover:text-ink text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex rounded-card border border-line p-1 bg-paper/50 text-xs">
+              <button
+                type="button"
+                onClick={() => setMode('VERIFY')}
+                className={`flex-1 py-1.5 rounded font-medium ${mode === 'VERIFY' ? 'bg-white shadow text-ink' : 'text-muted'}`}
+              >
+                Verify Certificate
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('REJECT')}
+                className={`flex-1 py-1.5 rounded font-medium ${mode === 'REJECT' ? 'bg-white shadow text-alert' : 'text-muted'}`}
+              >
+                Reject Certificate
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('NOT_APPLICABLE')}
+                className={`flex-1 py-1.5 rounded font-medium ${mode === 'NOT_APPLICABLE' ? 'bg-white shadow text-ink' : 'text-muted'}`}
+              >
+                Not Applicable
+              </button>
+            </div>
+
+            {error ? <ErrorNote>{error}</ErrorNote> : null}
+
+            {agreement.stamp_document_title ? (
+              <div className="rounded border border-line bg-stone-50 p-2.5 text-xs">
+                <span className="font-medium text-muted">Attached Document: </span>
+                <span className="font-semibold text-ink">{agreement.stamp_document_title}</span>
+              </div>
+            ) : null}
+
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {mode === 'VERIFY' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">
+                      Certificate / Reference Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. IN-KA12345678901234W"
+                      value={certNum}
+                      onChange={(e) => setCertNum(e.target.value)}
+                      className="w-full rounded border border-line px-3 py-2 text-sm font-mono"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-ink mb-1">State / Jurisdiction</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Karnataka"
+                        value={state}
+                        onChange={(e) => setState(e.target.value)}
+                        className="w-full rounded border border-line px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-ink mb-1">Stamp Duty (INR)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 500"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full rounded border border-line px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">Internal Notes</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Verification notes or SHCIL GRN match..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded border border-line px-3 py-2 text-sm"
+                    />
+                  </div>
+                </>
+              ) : mode === 'REJECT' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">Rejection Reason *</label>
+                    <textarea
+                      required
+                      rows={3}
+                      placeholder="Explain why the certificate is invalid, unreadable, or incorrect..."
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      className="w-full rounded border border-line px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-ink mb-1">Internal Notes</label>
+                    <input
+                      type="text"
+                      placeholder="Internal audit observations..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      className="w-full rounded border border-line px-3 py-2 text-sm"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Justification Reason *</label>
+                  <textarea
+                    required
+                    rows={3}
+                    placeholder="Legal rationale for exempting state stamp duty requirement..."
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full rounded border border-line px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-line">
+                <Button variant="ghost" size="sm" type="button" onClick={() => setIsOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant={mode === 'REJECT' ? 'danger' : 'primary'}
+                  size="sm"
+                  type="submit"
+                  disabled={isPending}
+                >
+                  {isPending ? 'Processing...' : mode === 'VERIFY' ? 'Confirm Stamping' : mode === 'REJECT' ? 'Reject Certificate' : 'Save Exemption'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

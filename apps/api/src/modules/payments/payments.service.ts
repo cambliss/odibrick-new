@@ -25,10 +25,10 @@ export class PaymentsService {
   ) {}
 
   // ------------------------------------------------------------- creation
-  /** Called when an agreement is executed: deposit + first month + service fee. */
+  /** Called when an agreement is signed: deposit + first month + Odibrick fee invoice. */
   async raiseMoveInDues(tenancy: any): Promise<void> {
     const existing = await this.db.one<{ c: number }>(
-      "SELECT COUNT(*) AS c FROM payments WHERE tenancy_id = ? AND purpose IN ('SECURITY_DEPOSIT','ADVANCE_RENT')",
+      "SELECT COUNT(*) AS c FROM payments WHERE tenancy_id = ? AND purpose IN ('SECURITY_DEPOSIT','ADVANCE_RENT','SERVICE_FEE','COMMISSION')",
       [tenancy.id],
     );
     if ((existing?.c ?? 0) > 0) return;
@@ -56,7 +56,150 @@ export class PaymentsService {
       dueDate,
     });
 
-    await this.scheduleAnnualCommission(tenancy);
+    await this.raiseOdibrickFeeInvoice(tenancy, dueDate);
+  }
+
+  /**
+   * Generates a traceable GST invoice and payment obligation for the Odibrick service fee.
+   * Idempotent: Skips if a fee payment or invoice already exists for the tenancy.
+   */
+  async raiseOdibrickFeeInvoice(tenancy: any, dueDate?: string): Promise<number | null> {
+    const existingFee = await this.db.one<any>(
+      "SELECT id, status, invoice_id FROM payments WHERE tenancy_id = ? AND purpose IN ('SERVICE_FEE','COMMISSION') LIMIT 1",
+      [tenancy.id],
+    );
+    if (existingFee) return existingFee.id;
+
+    const rule = await this.db.one<any>(
+      `SELECT * FROM commission_rules
+        WHERE applies_to = ? AND is_active = 1 AND effective_from <= CURDATE()
+          AND (effective_to IS NULL OR effective_to >= CURDATE())
+          AND (city IS NULL OR city = (SELECT city FROM properties WHERE id = ?))
+        ORDER BY city IS NULL, effective_from DESC LIMIT 1`,
+      [tenancy.service_plan ?? 'STANDARD', tenancy.property_id],
+    );
+
+    const monthlyRent = Number(tenancy.rent_amount);
+    let base = monthlyRent;
+    let fee = 0;
+    const taxRate = rule ? Number(rule.tax_rate ?? 18) : 18;
+
+    if (rule) {
+      switch (rule.basis) {
+        case 'PERCENT_OF_MONTHLY_RENT':
+          fee = (monthlyRent * Number(rule.percent_value)) / 100;
+          break;
+        case 'PERCENT_OF_ANNUAL_RENT':
+          base = monthlyRent * 12;
+          fee = (base * Number(rule.percent_value)) / 100;
+          break;
+        case 'FLAT_ANNUAL':
+          fee = Number(rule.flat_value);
+          break;
+        default:
+          fee = (monthlyRent * Number(rule.percent_value ?? 0)) / 100;
+      }
+      if (rule.min_amount) fee = Math.max(fee, Number(rule.min_amount));
+      if (rule.max_amount) fee = Math.min(fee, Number(rule.max_amount));
+    } else {
+      fee = monthlyRent * 0.5; // Standard default 50%
+    }
+
+    fee = Number(fee.toFixed(2));
+    const taxAmount = Number(((fee * taxRate) / 100).toFixed(2));
+    const totalAmount = Number((fee + taxAmount).toFixed(2));
+    const payerUserId = rule?.payer === 'TENANT' ? tenancy.tenant_user_id : tenancy.owner_user_id;
+    const due = dueDate ?? tenancy.start_date ?? new Date().toISOString().slice(0, 10);
+
+    // 1. Create payment obligation for Odibrick service fee
+    const paymentId = await this.createPayment({
+      payerUserId,
+      payeeUserId: null, // Odibrick platform collect
+      tenancyId: tenancy.id,
+      propertyId: tenancy.property_id,
+      purpose: 'SERVICE_FEE',
+      amount: fee,
+      taxRate,
+      dueDate: due,
+      notes: `Odibrick Service Fee (${tenancy.service_plan ?? 'STANDARD'} plan)`,
+    });
+
+    // 2. Create traceable GST tax invoice in invoices table
+    const invSeq = await this.db.nextSequence('INV');
+    const invoiceNumber = `ODB-INV-${new Date().getFullYear()}-${String(invSeq).padStart(6, '0')}`;
+    const payerUser = await this.db.one<any>('SELECT full_name, email FROM users WHERE id = ?', [payerUserId]);
+    const property = await this.db.one<any>(
+      'SELECT address_line1, locality, city, state, pincode FROM properties WHERE id = ?',
+      [tenancy.property_id],
+    );
+    const billingName = payerUser?.full_name || 'Odibrick Client';
+    const billingAddress = [
+      property?.address_line1,
+      property?.locality,
+      property?.city,
+      property?.state,
+      property?.pincode,
+    ].filter(Boolean).join(', ') || 'Bengaluru, Karnataka';
+    const state = property?.state || 'Karnataka';
+    const isIntraState = state.toLowerCase().includes('karnataka');
+    const cgst = isIntraState ? Number((taxAmount / 2).toFixed(2)) : 0;
+    const sgst = isIntraState ? Number((taxAmount - cgst).toFixed(2)) : 0;
+    const igst = isIntraState ? 0 : taxAmount;
+
+    const invoiceId = await this.db.insert('invoices', {
+      invoice_number: invoiceNumber,
+      user_id: payerUserId,
+      tenancy_id: tenancy.id,
+      payment_id: paymentId,
+      billing_name: billingName,
+      billing_address: billingAddress,
+      place_of_supply: state,
+      subtotal: fee,
+      cgst,
+      sgst,
+      igst,
+      total: totalAmount,
+      status: 'ISSUED',
+      issued_on: new Date(),
+    });
+
+    await this.db.execute(
+      `INSERT INTO invoice_lines (invoice_id, description, hsn_sac, quantity, unit_price, tax_rate, line_total)
+       VALUES (?, ?, '997212', 1, ?, ?, ?)`,
+      [invoiceId, `Odibrick Service Fee (${tenancy.service_plan ?? 'STANDARD'} plan)`, fee, taxRate, fee],
+    );
+
+    await this.db.update('payments', paymentId, { invoice_id: invoiceId });
+
+    // 3. Link commissions table record
+    const start = tenancy.start_date ? new Date(tenancy.start_date) : new Date();
+    const end = new Date(start);
+    end.setFullYear(end.getFullYear() + 1);
+    end.setDate(end.getDate() - 1);
+
+    await this.db.execute(
+      `INSERT INTO commissions (tenancy_id, rule_id, cycle_year, period_start, period_end,
+        base_amount, commission_amount, tax_amount, total_amount, payer, status, payment_id, invoice_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'INVOICED', ?, ?)
+       ON DUPLICATE KEY UPDATE payment_id = VALUES(payment_id), invoice_id = VALUES(invoice_id), status = 'INVOICED'`,
+      [
+        tenancy.id, rule?.id ?? null, start.getFullYear(),
+        start.toISOString().slice(0, 10), end.toISOString().slice(0, 10),
+        base.toFixed(2), fee.toFixed(2), taxAmount.toFixed(2), totalAmount.toFixed(2),
+        rule?.payer ?? 'OWNER', paymentId, invoiceId,
+      ],
+    );
+    await this.db.update('tenancies', tenancy.id, { renewal_due_on: end.toISOString().slice(0, 10) });
+
+    await this.audit.record({
+      actor: { id: payerUserId, publicId: '', fullName: billingName, email: payerUser?.email || '', roles: [], permissions: [] },
+      action: 'invoice.service_fee_issued',
+      objectType: 'invoice',
+      objectId: invoiceId,
+      metadata: { tenancyId: tenancy.id, paymentId, totalAmount, invoiceNumber },
+    });
+
+    return paymentId;
   }
 
   /**
@@ -386,7 +529,14 @@ export class PaymentsService {
       return { handled: true, duplicate: true };
     }
     if (newlyMarked && payment) {
-      await this.dispatchPaymentNotifications(payment, tenancyTransition, tenancy);
+      try {
+        await this.dispatchPaymentNotifications(payment, tenancyTransition, tenancy);
+      } catch (err: any) {
+        this.logger.error(
+          `Post-commit payment notification delivery failed for payment #${payment.id} (${payment.reference_code}): ${err?.message}`,
+          err?.stack,
+        );
+      }
     }
     return { handled: true };
   }
@@ -405,6 +555,17 @@ export class PaymentsService {
     const bankRef = dto.bankReference.trim();
 
     const { newlyMarked, tenancyTransition, tenancy } = await this.db.transaction(async (conn) => {
+      // 1. If tenancy-linked, lock root tenancy row FIRST to enforce uniform lock hierarchy
+      let preLockedTenancy: any = null;
+      if (payment.tenancy_id) {
+        const [tRows]: any = await conn.execute(
+          'SELECT * FROM tenancies WHERE id = ? FOR UPDATE',
+          [payment.tenancy_id],
+        );
+        preLockedTenancy = tRows[0] ?? null;
+      }
+
+      // 2. Lock the payment row SECOND
       const [payments]: any = await conn.execute(
         'SELECT * FROM payments WHERE id = ? FOR UPDATE',
         [paymentId],
@@ -438,12 +599,21 @@ export class PaymentsService {
         ],
       );
 
-      const res = await this.applyPaymentSuccess(conn, paymentId, `recorded-by:${user.id}`);
+      const res = await this.applyPaymentSuccess(conn, paymentId, `recorded-by:${user.id}`, preLockedTenancy);
       return res;
     });
 
+    let notificationError: string | null = null;
     if (newlyMarked) {
-      await this.dispatchPaymentNotifications(payment, tenancyTransition, tenancy);
+      try {
+        await this.dispatchPaymentNotifications(payment, tenancyTransition, tenancy);
+      } catch (err: any) {
+        notificationError = err?.message || 'Notification service error';
+        this.logger.error(
+          `Post-commit payment notification delivery failed for payment #${paymentId} (${payment.reference_code}): ${notificationError}`,
+          err?.stack,
+        );
+      }
     }
 
     await this.audit.record({
@@ -451,10 +621,18 @@ export class PaymentsService {
       action: 'payment.recorded_offline',
       objectType: 'payment',
       objectId: paymentId,
-      metadata: { bankReference: bankRef },
+      metadata: {
+        bankReference: bankRef,
+        notificationsDelivered: newlyMarked ? notificationError === null : false,
+        ...(notificationError ? { notificationError } : {}),
+      },
       req,
     });
-    return { id: paymentId, status: 'PAID' };
+    return {
+      id: paymentId,
+      status: 'PAID',
+      ...(notificationError ? { notificationWarning: 'Payment recorded, but party notification delivery failed.' } : {}),
+    };
   }
 
   private async markPaid(paymentId: number, source: string) {
@@ -462,7 +640,14 @@ export class PaymentsService {
       return this.applyPaymentSuccess(conn, paymentId, source);
     });
     if (res.newlyMarked && res.payment) {
-      await this.dispatchPaymentNotifications(res.payment, res.tenancyTransition, res.tenancy);
+      try {
+        await this.dispatchPaymentNotifications(res.payment, res.tenancyTransition, res.tenancy);
+      } catch (err: any) {
+        this.logger.error(
+          `Post-commit payment notification delivery failed for payment #${res.payment.id} (${res.payment.reference_code}): ${err?.message}`,
+          err?.stack,
+        );
+      }
     }
   }
 
@@ -470,7 +655,28 @@ export class PaymentsService {
     conn: any,
     paymentId: number,
     source: string,
+    preLockedTenancy?: any,
   ): Promise<{ payment: any; newlyMarked: boolean; tenancyTransition: 'CHECK_IN' | 'CLOSED' | null; tenancy: any }> {
+    // 1. If tenancy-linked and not pre-locked by caller, lock root tenancy FIRST
+    let tenancyRow: any = preLockedTenancy ?? null;
+    if (!tenancyRow) {
+      const [pCheck]: any = await conn.execute(
+        'SELECT id, tenancy_id, status FROM payments WHERE id = ?',
+        [paymentId],
+      );
+      if (!pCheck.length) {
+        return { payment: null, newlyMarked: false, tenancyTransition: null, tenancy: null };
+      }
+      if (pCheck[0].tenancy_id) {
+        const [tenancies]: any = await conn.execute(
+          'SELECT * FROM tenancies WHERE id = ? FOR UPDATE',
+          [pCheck[0].tenancy_id],
+        );
+        tenancyRow = tenancies[0] ?? null;
+      }
+    }
+
+    // 2. Lock the target payment row SECOND
     const [payments]: any = await conn.execute(
       'SELECT * FROM payments WHERE id = ? FOR UPDATE',
       [paymentId],
@@ -480,7 +686,7 @@ export class PaymentsService {
     }
     const payment = payments[0];
     if (payment.status === 'PAID') {
-      return { payment, newlyMarked: false, tenancyTransition: null, tenancy: null };
+      return { payment, newlyMarked: false, tenancyTransition: null, tenancy: tenancyRow };
     }
 
     const settledAt = this.provider.custodial ? null : new Date();
@@ -491,9 +697,17 @@ export class PaymentsService {
       [settlementStatus, settledAt, paymentId],
     );
 
-    // Synchronize linked Commercial Obligations
+    // Synchronize linked Commercial Obligations, Invoices, and Commissions
     await conn.execute(
       `UPDATE commercial_obligations SET status = 'PAID' WHERE payment_id = ? AND status != 'PAID'`,
+      [paymentId],
+    );
+    await conn.execute(
+      `UPDATE invoices SET status = 'PAID' WHERE payment_id = ? AND status <> 'PAID'`,
+      [paymentId],
+    );
+    await conn.execute(
+      `UPDATE commissions SET status = 'PAID' WHERE payment_id = ? AND status <> 'PAID'`,
       [paymentId],
     );
 
@@ -521,29 +735,118 @@ export class PaymentsService {
     }
 
     let tenancyTransition: 'CHECK_IN' | 'CLOSED' | null = null;
-    let tenancyRow: any = null;
 
     if (payment.tenancy_id) {
-      const [tenancies]: any = await conn.execute(
-        'SELECT * FROM tenancies WHERE id = ? FOR UPDATE',
-        [payment.tenancy_id],
-      );
-      if (tenancies.length > 0) {
-        tenancyRow = tenancies[0];
+      if (!tenancyRow) {
+        const [tenancies]: any = await conn.execute(
+          'SELECT * FROM tenancies WHERE id = ? FOR UPDATE',
+          [payment.tenancy_id],
+        );
+        if (tenancies.length > 0) {
+          tenancyRow = tenancies[0];
+        }
+      }
+      if (tenancyRow) {
         if (tenancyRow.stage === 'AWAITING_PAYMENT') {
-          const [outstanding]: any = await conn.execute(
-            `SELECT COUNT(*) AS c FROM payments
-              WHERE tenancy_id = ? AND purpose IN ('SECURITY_DEPOSIT','ADVANCE_RENT') AND status <> 'PAID' AND id <> ?`,
-            [payment.tenancy_id, paymentId],
+          // 1. Verify Odibrick service fee obligation exists and is confirmed PAID
+          const [feeRows]: any = await conn.execute(
+            `SELECT id, status FROM payments
+              WHERE tenancy_id = ? AND purpose IN ('SERVICE_FEE','COMMISSION')
+              FOR UPDATE`,
+            [payment.tenancy_id],
           );
-          if ((outstanding[0]?.c ?? 0) === 0) {
-            await conn.execute(`UPDATE tenancies SET stage = 'CHECK_IN_PENDING' WHERE id = ?`, [payment.tenancy_id]);
-            await conn.execute(
-              `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title)
-               VALUES (?, ?, 'PAYMENT_COMPLETED', 'Move-in payments completed')`,
-              [tenancyRow.property_id, payment.tenancy_id],
+          const hasFeeObligation = feeRows.length > 0;
+          const feeConfirmed =
+            hasFeeObligation &&
+            feeRows.every((f: any) => f.id === paymentId || f.status === 'PAID');
+
+          if (feeConfirmed) {
+            // Find active agreement for this tenancy under row lock
+            const [agrs]: any = await conn.execute(
+              `SELECT id, legal_case_id, current_version, status, approved_by,
+                      stamp_duty_status, stamp_reference, registration_ref,
+                      stamp_verified_by, stamp_verified_at
+                 FROM agreements
+                WHERE tenancy_id = ? AND status <> 'CANCELLED'
+                ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+              [payment.tenancy_id],
             );
-            tenancyTransition = 'CHECK_IN';
+            if (agrs.length > 0) {
+              const agr = agrs[0];
+
+              // Condition 4a: Must have a legally approved, current agreement version
+              const [currVer]: any = await conn.execute(
+                `SELECT version, reviewed_at FROM agreement_versions
+                  WHERE agreement_id = ? AND version = ?`,
+                [agr.id, agr.current_version],
+              );
+              const isVersionApproved =
+                agr.approved_by !== null &&
+                currVer.length > 0 &&
+                currVer[0].reviewed_at !== null;
+
+              // Condition 4b & 5: All required signatories present and signed; zero-signatory cannot pass
+              const [sigStats]: any = await conn.execute(
+                `SELECT COUNT(*) AS total_sigs,
+                        SUM(CASE WHEN status = 'SIGNED' THEN 1 ELSE 0 END) AS signed_sigs,
+                        SUM(CASE WHEN status <> 'SIGNED' THEN 1 ELSE 0 END) AS pending_sigs
+                   FROM agreement_signatories WHERE agreement_id = ?`,
+                [agr.id],
+              );
+              const totalSigs = Number(sigStats[0]?.total_sigs || 0);
+              const pendingSigs = Number(sigStats[0]?.pending_sigs || 0);
+              const areSignatoriesComplete = totalSigs >= 2 && pendingSigs === 0;
+
+              // Condition 4c: Stamping is verified as PAID or REGISTERED, or explicitly marked NOT_APPLICABLE by authorized staff
+              const isStampingSatisfied =
+                (agr.stamp_duty_status === 'PAID' &&
+                  agr.stamp_verified_by != null &&
+                  agr.stamp_verified_at != null &&
+                  Boolean(agr.stamp_reference && String(agr.stamp_reference).trim())) ||
+                (agr.stamp_duty_status === 'REGISTERED' &&
+                  agr.stamp_verified_by != null &&
+                  agr.stamp_verified_at != null &&
+                  Boolean((agr.registration_ref && String(agr.registration_ref).trim()) || (agr.stamp_reference && String(agr.stamp_reference).trim()))) ||
+                (agr.stamp_duty_status === 'NOT_APPLICABLE' &&
+                  agr.stamp_verified_by != null &&
+                  agr.stamp_verified_at != null &&
+                  agr.stamp_reference === 'NOT_APPLICABLE');
+
+              if (isVersionApproved && areSignatoriesComplete && isStampingSatisfied && agr.status !== 'EXECUTED') {
+                await conn.execute(
+                  `UPDATE agreements SET status = 'EXECUTED', executed_at = NOW() WHERE id = ?`,
+                  [agr.id],
+                );
+                if (agr.legal_case_id) {
+                  await conn.execute(
+                    `UPDATE legal_cases SET status = 'EXECUTED', closed_at = NOW() WHERE id = ?`,
+                    [agr.legal_case_id],
+                  );
+                }
+                await conn.execute(
+                  `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title, detail)
+                   VALUES (?, ?, 'AGREEMENT_EXECUTED', 'Agreement executed', ?)`,
+                  [tenancyRow.property_id, payment.tenancy_id, `Agreement #${agr.id} (v${agr.current_version}) legally executed following stamping verification and Odibrick service fee confirmation.`],
+                );
+
+                await conn.execute(`UPDATE tenancies SET stage = 'CHECK_IN_PENDING' WHERE id = ?`, [payment.tenancy_id]);
+                await conn.execute(`UPDATE properties SET status = 'RENTED' WHERE id = ?`, [tenancyRow.property_id]);
+                await conn.execute(
+                  `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title)
+                   VALUES (?, ?, 'PAYMENT_COMPLETED', 'Odibrick service fee confirmed & stamping verified; move-in scheduled')`,
+                  [tenancyRow.property_id, payment.tenancy_id],
+                );
+                tenancyTransition = 'CHECK_IN';
+              } else if (isVersionApproved && areSignatoriesComplete && !isStampingSatisfied && agr.status !== 'EXECUTED') {
+                // Payment is confirmed PAID, but stamping remains pending or rejected.
+                // Do not execute agreement or advance tenancy to CHECK_IN_PENDING.
+                await conn.execute(
+                  `INSERT INTO property_timeline (property_id, tenancy_id, event_code, title, detail)
+                   VALUES (?, ?, 'PAYMENT_COMPLETED', 'Odibrick service fee confirmed', 'Fee payment confirmed. Awaiting e-stamp verification before agreement execution.')`,
+                  [tenancyRow.property_id, payment.tenancy_id],
+                );
+              }
+            }
           }
         } else if (tenancyRow.stage === 'MOVE_OUT' && payment.purpose === 'REFUND') {
           const [openRefunds]: any = await conn.execute(
@@ -592,6 +895,12 @@ export class PaymentsService {
     });
 
     if (tenancyTransition === 'CHECK_IN' && tenancy) {
+      await this.notify.sendMany([tenancy.owner_user_id, tenancy.tenant_user_id], 'AGREEMENT_READY', {
+        title: 'Agreement executed',
+        body: 'Initial payment confirmed and agreement has been formally executed. Move-in check-in is now pending.',
+        actionUrl: `/dashboard/tenancy/${tenancy.id}`,
+        severity: 'INFO',
+      });
       await this.notify.send(tenancy.tenant_user_id, 'CHECK_IN_PENDING', {
         title: 'Document your home',
         body: 'Record the Day 1 condition report as soon as you take possession. It protects your deposit.',

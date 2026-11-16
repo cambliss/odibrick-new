@@ -9,6 +9,7 @@ import { DatabaseModule } from './common/database/database.module';
 import { AuditModule } from './common/audit/audit.module';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
+import { ContactVerifiedGuard } from './common/auth/contact-verified.guard';
 import { AllExceptionsFilter } from './common/http/http-exception.filter';
 
 import { AuthModule } from './modules/auth/auth.module';
@@ -65,9 +66,10 @@ import { HealthModule } from './modules/health/health.module';
     HealthModule,
   ],
   providers: [
-    // Auth first, then role/permission checks, then rate limiting.
+    // Auth first, then role/permission checks, then contact OTP verification gate, then rate limiting.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ContactVerifiedGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],

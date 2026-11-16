@@ -32,6 +32,8 @@ export interface UserPropertyPreferences {
   userId: number;
   preferredCity?: string | null;
   preferredLocality?: string | null;
+  preferredLocalities?: string[];
+  preferredBhk?: number[];
   propertyType?: PropertyType | null;
   minBhk?: number | null;
   maxBhk?: number | null;

@@ -96,6 +96,23 @@ describe('KycService', () => {
   });
 
   describe('submit', () => {
+    it('rejects submission when contact OTP verification is incomplete', async () => {
+      const unverifiedUser: AuthUser = {
+        ...regularUser,
+        emailVerified: true,
+        phoneVerified: false,
+        contactVerified: false,
+      };
+      await expect(
+        service.submit(unverifiedUser, {
+          legalName: 'Regular User',
+          idType: 'PAN',
+          idNumber: 'ABCDE1234F',
+        }),
+      ).rejects.toThrow(/Verify your mobile number via OTP/i);
+      expect(db.insert).not.toHaveBeenCalled();
+    });
+
     it('rejects submission if identity is already verified', async () => {
       (db.one as jest.Mock).mockResolvedValueOnce({ id: 1, status: 'VERIFIED' });
 

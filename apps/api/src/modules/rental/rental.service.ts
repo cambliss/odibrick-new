@@ -20,8 +20,28 @@ export class RentalService {
     private readonly notify: NotificationsService,
   ) {}
 
+  private assertContactVerifiedUser(user: AuthUser): void {
+    if (user.emailVerified === false && user.phoneVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before performing this action.',
+      );
+    }
+    if (user.emailVerified === false) {
+      throw new ForbiddenException('Verify your email address via OTP before performing this action.');
+    }
+    if (user.phoneVerified === false) {
+      throw new ForbiddenException('Verify your mobile number via OTP before performing this action.');
+    }
+    if (user.contactVerified === false) {
+      throw new ForbiddenException(
+        'Verify both your email address and mobile number via OTP before performing this action.',
+      );
+    }
+  }
+
   // ------------------------------------------------------------- enquiries
   async createEnquiry(user: AuthUser, dto: CreateEnquiryDto, req?: Request) {
+    this.assertContactVerifiedUser(user);
     const property = await this.activeProperty(dto.propertyId);
     if (property.listed_by_user_id === user.id) {
       throw new BadRequestException('You cannot enquire about your own listing.');
@@ -94,6 +114,7 @@ export class RentalService {
 
   // -------------------------------------------------------------- viewings
   async requestViewing(user: AuthUser, dto: CreateViewingDto) {
+    this.assertContactVerifiedUser(user);
     const property = await this.activeProperty(dto.propertyId);
     const scheduledDate = new Date(dto.scheduledFor);
     if (isNaN(scheduledDate.getTime())) {
@@ -149,6 +170,7 @@ export class RentalService {
 
   // ----------------------------------------------------------- applications
   async apply(user: AuthUser, dto: CreateApplicationDto, req?: Request) {
+    this.assertContactVerifiedUser(user);
     const property = await this.activeProperty(dto.propertyId);
     if (property.listed_by_user_id === user.id) {
       throw new BadRequestException('You cannot apply to your own listing.');
@@ -407,7 +429,7 @@ export class RentalService {
     const [agreements, payments, meetings, inspections, legalCases, timeline, maintenance, disputes] = await Promise.all([
       this.db.query(
         `SELECT id, public_id, agreement_number, agreement_type, status, current_version, effective_from, effective_to,
-                stamp_duty_status, approved_at, executed_at
+                stamp_duty_status, stamp_reference, stamp_verified_at, stamp_rejection_reason, approved_at, executed_at
            FROM agreements WHERE tenancy_id = ? ORDER BY id DESC`, [id]),
       this.db.query(
         `SELECT id, reference_code, purpose, total_amount, status, due_date, paid_at

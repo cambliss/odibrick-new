@@ -1,10 +1,10 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { ChangePasswordDto, LoginDto, RefreshDto, RegisterDto } from './auth.dto';
-import { CurrentUser, Public } from '../../common/auth/decorators';
+import { ChangePasswordDto, LoginDto, RefreshDto, RegisterDto, SendOtpDto, VerifyOtpDto } from './auth.dto';
+import { AllowUnverifiedContact, CurrentUser, Public } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
 
 const REFRESH_COOKIE = 'odb_rt';
@@ -20,7 +20,11 @@ export class AuthController {
   async register(@Body() dto: RegisterDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.register(dto, req);
     this.setCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user, expiresIn: result.expiresIn };
+    return {
+      user: result.user,
+      verificationRequired: result.verificationRequired,
+      expiresIn: result.expiresIn,
+    };
   }
 
   @Public()
@@ -30,7 +34,11 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.login(dto, req);
     this.setCookies(res, result.accessToken, result.refreshToken);
-    return { user: result.user, expiresIn: result.expiresIn };
+    return {
+      user: result.user,
+      verificationRequired: result.verificationRequired,
+      expiresIn: result.expiresIn,
+    };
   }
 
   @Public()
@@ -52,15 +60,58 @@ export class AuthController {
     res.clearCookie(REFRESH_COOKIE, { path: '/' });
   }
 
+  @AllowUnverifiedContact()
   @Get('me')
   async me(@CurrentUser() user: AuthUser) {
     return this.auth.loadAuthUser(user.id);
   }
 
+  @AllowUnverifiedContact()
   @HttpCode(204)
   @Post('password')
   async changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto, @Req() req: Request) {
     await this.auth.changePassword(user, dto.currentPassword, dto.newPassword, req);
+  }
+
+  @AllowUnverifiedContact()
+  @Get('otp/status')
+  async otpStatus(@CurrentUser() user: AuthUser) {
+    return this.auth.otpStatus(user);
+  }
+
+  @AllowUnverifiedContact()
+  @Throttle({ default: { limit: 6, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('otp/send')
+  async sendOtp(@CurrentUser() user: AuthUser, @Body() dto: SendOtpDto, @Req() req: Request) {
+    return this.auth.sendOtp(user, dto, req);
+  }
+
+  @AllowUnverifiedContact()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('otp/verify')
+  async verifyOtp(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: VerifyOtpDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.verifyOtp(user, dto, req);
+    this.setCookies(res, result.accessToken, result.refreshToken);
+    return {
+      verified: result.verified,
+      channel: result.channel,
+      user: result.user,
+      expiresIn: result.expiresIn,
+    };
+  }
+
+  @AllowUnverifiedContact()
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  @Get('otp/sandbox-codes')
+  async sandboxCodes(@CurrentUser() user: AuthUser, @Req() req: Request) {
+    return this.auth.getSandboxOtpCodes(user, req);
   }
 
   private setCookies(res: Response, accessToken: string, refreshToken: string) {

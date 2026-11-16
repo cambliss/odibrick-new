@@ -6,7 +6,7 @@ import { Badge, Button, Card, CardHeader, DataRow, EmptyState, StatTile, StatusC
 import { RecordSpine } from '@/components/record-spine';
 import { Seal } from '@/components/verification-seal';
 import { inr, shortDate, dateTime, relative, titleCase } from '@/lib/format';
-import { AssignAdvocateButton, AddNoteForm, ScheduleMeetingButton, ApproveAgreementButton } from './case-actions';
+import { AssignAdvocateButton, AddNoteForm, ScheduleMeetingButton, ApproveAgreementButton, StampingVerificationAction } from './case-actions';
 
 export const metadata: Metadata = { title: 'Legal Case Details', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -520,6 +520,7 @@ export default async function LegalCaseDetailPage({ params }: { params: Promise<
                             currentVersion={agr.current_version}
                           />
                         ) : null}
+                        <StampingVerificationAction agreement={agr} />
                         {agr.status === 'EXECUTED' ? (
                           <Seal label="Executed" sub={agr.executed_at ? shortDate(agr.executed_at) : undefined} />
                         ) : null}
