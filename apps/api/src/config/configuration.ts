@@ -66,6 +66,8 @@ export default () => ({
    * *_PREVIOUS / *_PREVIOUS_VERSION until existing rows are re-keyed.
    */
   kyc: {
+    submissionEnabled:
+      process.env.KYC_SUBMISSION_ENABLED === 'true' || process.env.KYC_SUBMISSION_ENABLED === '1',
     hmacKey: process.env.KYC_HMAC_KEY ?? '',
     hmacKeyVersion: parseInt(process.env.KYC_HMAC_KEY_VERSION ?? '1', 10),
     hmacKeyPrevious: process.env.KYC_HMAC_KEY_PREVIOUS ?? '',

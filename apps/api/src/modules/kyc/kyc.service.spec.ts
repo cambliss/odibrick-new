@@ -1,7 +1,17 @@
 import { Test } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KycService } from './kyc.service';
+import { KycCryptoService } from './kyc-crypto.service';
+import { KycTransitionService } from './kyc-transition.service';
+import { KYC_CONSENT_VERSION } from './kyc-consent';
+import { SubmitKycDto } from './kyc.dto';
+import { VerificationOrchestrator } from './verification/verification.orchestrator';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -28,31 +38,67 @@ const kycReviewer: AuthUser = {
 describe('KycService', () => {
   let service: KycService;
   let db: jest.Mocked<Partial<DatabaseService>>;
+  let txConn: { execute: jest.Mock; query: jest.Mock };
   let audit: jest.Mocked<Partial<AuditService>>;
   let notify: jest.Mocked<Partial<NotificationsService>>;
   let config: jest.Mocked<Partial<ConfigService>>;
+  let transitions: jest.Mocked<Partial<KycTransitionService>>;
+  let orchestrator: jest.Mocked<Partial<VerificationOrchestrator>>;
+
+  const validSubmitDto = (): SubmitKycDto => ({
+    legalName: 'Regular User',
+    passport: {
+      documentId: 101,
+      number: 'P1234567',
+      issuingCountry: 'IND',
+      dateOfBirth: '1992-05-14',
+      expiryDate: '2032-05-14',
+    },
+    supportingDocuments: [{ documentId: 102, type: 'PAN', number: 'ABCDE1234F' }],
+    consents: [
+      { purpose: 'KYC_PROCESSING', version: KYC_CONSENT_VERSION, accepted: true },
+    ],
+  });
 
   beforeEach(async () => {
+    txConn = {
+      execute: jest.fn().mockResolvedValue([{ affectedRows: 1, insertId: 1 }]),
+      query: jest.fn().mockResolvedValue([[{ max_no: 0 }]]),
+    };
     db = {
       one: jest.fn(),
       query: jest.fn().mockResolvedValue([]),
       insert: jest.fn().mockResolvedValue(1),
       update: jest.fn().mockResolvedValue(1),
       execute: jest.fn().mockResolvedValue({ affectedRows: 1, insertId: 1 } as any),
+      transaction: jest.fn(async (fn: (conn: any) => Promise<any>) => fn(txConn)),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
     notify = { send: jest.fn().mockResolvedValue(undefined) };
     config = {
       get: jest.fn((key: string) => {
         if (key === 'auth.fieldKey') return '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+        if (key === 'kyc.submissionEnabled') return true;
+        if (key === 'kyc.hmacKey') return 'fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210';
+        if (key === 'kyc.hmacKeyVersion') return 1;
         if (key === 'providers.kyc') return 'manual';
         return null;
       }),
+    };
+    transitions = {
+      transition: jest.fn().mockResolvedValue({ from: 'REJECTED', to: 'SUBMITTED', version: 2 }),
+    };
+    orchestrator = {
+      providerKey: 'manual',
+      run: jest.fn().mockResolvedValue({ applied: true, status: 'UNDER_REVIEW', reasonCode: 'MANUAL_REVIEW' }),
     };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         KycService,
+        KycCryptoService,
+        { provide: KycTransitionService, useValue: transitions },
+        { provide: VerificationOrchestrator, useValue: orchestrator },
         { provide: DatabaseService, useValue: db },
         { provide: AuditService, useValue: audit },
         { provide: NotificationsService, useValue: notify },
@@ -96,6 +142,28 @@ describe('KycService', () => {
   });
 
   describe('submit', () => {
+    it('blocks new submissions when KYC_SUBMISSION_ENABLED is false', async () => {
+      (config.get as jest.Mock).mockImplementation((key: string) =>
+        key === 'kyc.submissionEnabled' ? false : null,
+      );
+
+      await expect(service.submit(regularUser, validSubmitDto())).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'KYC_SUBMISSION_DISABLED' }),
+      });
+      expect(db.one).not.toHaveBeenCalled();
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('blocks resubmissions when KYC_SUBMISSION_ENABLED is unset or false', async () => {
+      (config.get as jest.Mock).mockImplementation(() => undefined);
+      (db.one as jest.Mock).mockResolvedValueOnce({ id: 42, status: 'REJECTED', decision_version: 1 });
+
+      await expect(service.submit(regularUser, validSubmitDto())).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
     it('rejects submission when contact OTP verification is incomplete', async () => {
       const unverifiedUser: AuthUser = {
         ...regularUser,
@@ -103,67 +171,123 @@ describe('KycService', () => {
         phoneVerified: false,
         contactVerified: false,
       };
-      await expect(
-        service.submit(unverifiedUser, {
-          legalName: 'Regular User',
-          idType: 'PAN',
-          idNumber: 'ABCDE1234F',
-        }),
-      ).rejects.toThrow(/Verify your mobile number via OTP/i);
-      expect(db.insert).not.toHaveBeenCalled();
+      await expect(service.submit(unverifiedUser, validSubmitDto())).rejects.toThrow(
+        /Verify your mobile number via OTP/i,
+      );
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('fails closed when KYC_HMAC_KEY is not configured', async () => {
+      (config.get as jest.Mock).mockImplementation(() => null);
+      await expect(service.submit(regularUser, validSubmitDto())).rejects.toBeInstanceOf(
+        ServiceUnavailableException,
+      );
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects submission when KYC_PROCESSING consent is missing or not accepted', async () => {
+      const dto = validSubmitDto();
+      dto.consents = [{ purpose: 'KYC_PROCESSING', version: KYC_CONSENT_VERSION, accepted: false }];
+
+      await expect(service.submit(regularUser, dto)).rejects.toBeInstanceOf(BadRequestException);
+      expect(db.transaction).not.toHaveBeenCalled();
     });
 
     it('rejects submission if identity is already verified', async () => {
-      (db.one as jest.Mock).mockResolvedValueOnce({ id: 1, status: 'VERIFIED' });
+      (db.one as jest.Mock).mockResolvedValueOnce({ id: 1, status: 'VERIFIED', decision_version: 1 });
 
-      await expect(
-        service.submit(regularUser, {
-          legalName: 'Regular User',
-          idType: 'PAN',
-          idNumber: 'ABCDE1234F',
-        }),
-      ).rejects.toThrow(/already verified/i);
+      await expect(service.submit(regularUser, validSubmitDto())).rejects.toThrow(
+        /already verified/i,
+      );
     });
 
     it('rejects submission if documents are currently under review', async () => {
-      (db.one as jest.Mock).mockResolvedValueOnce({ id: 1, status: 'UNDER_REVIEW' });
+      (db.one as jest.Mock).mockResolvedValueOnce({ id: 1, status: 'UNDER_REVIEW', decision_version: 1 });
 
-      await expect(
-        service.submit(regularUser, {
-          legalName: 'Regular User',
-          idType: 'PAN',
-          idNumber: 'ABCDE1234F',
-        }),
-      ).rejects.toThrow(/already under review/i);
+      await expect(service.submit(regularUser, validSubmitDto())).rejects.toThrow(
+        /already under review/i,
+      );
     });
 
-    it('successfully submits KYC with encrypted idNumber and notifies compliance', async () => {
+    it('rejects submission when a referenced document belongs to another user', async () => {
       (db.one as jest.Mock).mockResolvedValueOnce(null); // no prior KYC
-      (db.insert as jest.Mock).mockResolvedValueOnce(42);
+      (db.query as jest.Mock).mockResolvedValueOnce([
+        { id: 101, owner_user_id: regularUser.id, is_active: 1 },
+        { id: 102, owner_user_id: 999, is_active: 1 },
+      ]);
 
-      const res = await service.submit(regularUser, {
-        legalName: 'Regular User',
-        idType: 'PAN',
-        idNumber: 'ABCDE1234F',
-        documentIds: [101, 102],
-      });
+      await expect(service.submit(regularUser, validSubmitDto())).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(db.transaction).not.toHaveBeenCalled();
+    });
 
-      expect(res.id).toBe(42);
-      expect(res.status).toBe('UNDER_REVIEW');
-      expect(db.insert).toHaveBeenCalledWith(
-        'kyc_records',
-        expect.objectContaining({
-          user_id: 20,
-          id_last4: '234F',
-          status: 'UNDER_REVIEW',
-        }),
+    it('successfully submits passport-first KYC, hashes passport number with HMAC, records consent, and runs orchestrator', async () => {
+      (db.one as jest.Mock)
+        .mockResolvedValueOnce(null) // no prior KYC
+        .mockResolvedValueOnce({ date_of_birth: '1992-05-14' }); // user_profiles
+      (db.query as jest.Mock)
+        .mockResolvedValueOnce([
+          { id: 101, owner_user_id: regularUser.id, is_active: 1 },
+          { id: 102, owner_user_id: regularUser.id, is_active: 1 },
+        ])
+        .mockResolvedValueOnce([]); // no duplicate HMAC
+      txConn.execute
+        .mockResolvedValueOnce([{ insertId: 42, affectedRows: 1 }]) // kyc_records
+        .mockResolvedValue([{ affectedRows: 1, insertId: 7 }]); // subsequent inserts/updates (attemptId = 7)
+
+      const res = await service.submit(regularUser, validSubmitDto());
+
+      expect(res).toEqual({ id: 42, status: 'UNDER_REVIEW', attemptId: 7 });
+      expect(txConn.execute).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO kyc_records'),
+        [regularUser.id, 'Regular User', '4567', 'manual', 101],
       );
-      expect(db.execute).toHaveBeenCalledWith(
-        expect.stringContaining('UPDATE documents SET entity_type'),
-        expect.any(Array),
+      expect(txConn.execute).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO kyc_identity_documents'),
+        expect.arrayContaining([42, 101, 'IND', 'Regular User', '4567']),
       );
+      expect(txConn.execute).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO kyc_consents'),
+        expect.arrayContaining([regularUser.id, 42, 'KYC_PROCESSING', KYC_CONSENT_VERSION]),
+      );
+      expect(txConn.execute).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE documents'),
+        [42, 42, regularUser.id, 101, 102],
+      );
+      expect(orchestrator.run).toHaveBeenCalledWith(42, 7);
       expect(notify.send).toHaveBeenCalledWith(20, 'KYC_SUBMITTED', expect.any(Object));
       expect(audit.record).toHaveBeenCalled();
+    });
+
+    it('allows resubmission from REJECTED via KycTransitionService and supersedes prior identity docs', async () => {
+      (db.one as jest.Mock)
+        .mockResolvedValueOnce({ id: 42, user_id: 20, status: 'REJECTED', decision_version: 2 })
+        .mockResolvedValueOnce(null); // user_profiles
+      (db.query as jest.Mock)
+        .mockResolvedValueOnce([
+          { id: 101, owner_user_id: regularUser.id, is_active: 1 },
+          { id: 102, owner_user_id: regularUser.id, is_active: 1 },
+        ])
+        .mockResolvedValueOnce([]); // no duplicate HMAC
+      txConn.query.mockResolvedValueOnce([[{ max_no: 1 }]]);
+      txConn.execute.mockResolvedValue([{ affectedRows: 1, insertId: 9 }]);
+
+      const res = await service.submit(regularUser, validSubmitDto());
+
+      expect(res).toEqual({ id: 42, status: 'UNDER_REVIEW', attemptId: 9 });
+      expect(transitions.transition).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'SUBMITTED',
+          actor: 'USER',
+          by: regularUser,
+        }),
+      );
+      expect(txConn.execute).toHaveBeenCalledWith(
+        expect.stringContaining("UPDATE kyc_identity_documents SET status = 'SUPERSEDED'"),
+        [42],
+      );
+      expect(orchestrator.run).toHaveBeenCalledWith(42, 9);
     });
   });
 
