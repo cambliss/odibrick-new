@@ -1,10 +1,21 @@
 import Link from 'next/link';
 import { serverApiOrNull } from '@/lib/api';
+import { LandingHeader } from './landing-header';
 
 type Me = { fullName: string; roles: string[] };
 
-export async function SiteHeader({ transparent }: { transparent?: boolean }) {
+export async function SiteHeader({
+  transparent,
+  variant = 'default',
+}: {
+  transparent?: boolean;
+  variant?: 'default' | 'landing';
+}) {
   const me = await serverApiOrNull<Me>('/auth/me');
+
+  if (variant === 'landing') {
+    return <LandingHeader me={me} />;
+  }
 
   return (
     <header className={`${transparent ? 'absolute inset-x-0 top-0 z-20' : 'border-b border-line bg-white'}`}>
