@@ -5,6 +5,15 @@
 @layer base {
   :root {
     color-scheme: light;
+    --brand-green: #133d31;
+    --brand-forest: #0b2a21;
+    --brand-sage: #b9cfc5;
+    --brand-sage-soft: #e3ece7;
+    --brand-ivory: #f7f5f0;
+    --brand-ink: #0e1f1a;
+    --brand-stone: #7e918a;
+    --brand-brick: #b5573a;
+    --brand-line: #e3e3db;
   }
 
   html {
@@ -81,6 +90,41 @@
 
   .hint {
     @apply mt-1 text-[13px] text-muted;
+  }
+
+  .brand-label {
+    font-family: var(--font-barlow-condensed), var(--font-barlow), Arial, sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.2;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* Running-bond brick grid at 6% opacity (brand guidelines: 5-8% opacity). */
+  .brickgrid {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cpath d='M0 .5H56M0 14.5H56M.5 0V14M28.5 14V28' stroke='%23fff' stroke-opacity='.06' fill='none'/%3E%3C/svg%3E");
+  }
+
+  .brickgrid-g {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cpath d='M0 .5H56M0 14.5H56M.5 0V14M28.5 14V28' stroke='%23133D31' stroke-opacity='.06' fill='none'/%3E%3C/svg%3E");
+  }
+
+  /* Brand guard frame: four corner brackets holding key proof/dates. */
+  .guard {
+    --guard-c: var(--brand-green);
+    --guard-l: 22px;
+    --guard-t: 2px;
+    background:
+      linear-gradient(var(--guard-c), var(--guard-c)) top left / var(--guard-l) var(--guard-t),
+      linear-gradient(var(--guard-c), var(--guard-c)) top left / var(--guard-t) var(--guard-l),
+      linear-gradient(var(--guard-c), var(--guard-c)) top right / var(--guard-l) var(--guard-t),
+      linear-gradient(var(--guard-c), var(--guard-c)) top right / var(--guard-t) var(--guard-l),
+      linear-gradient(var(--guard-c), var(--guard-c)) bottom left / var(--guard-l) var(--guard-t),
+      linear-gradient(var(--guard-c), var(--guard-c)) bottom left / var(--guard-t) var(--guard-l),
+      linear-gradient(var(--guard-c), var(--guard-c)) bottom right / var(--guard-l) var(--guard-t),
+      linear-gradient(var(--guard-c), var(--guard-c)) bottom right / var(--guard-t) var(--guard-l);
+    background-repeat: no-repeat;
   }
 }
 

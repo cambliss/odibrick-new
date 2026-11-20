@@ -1,12 +1,17 @@
-import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SiteHeader } from '@/components/site-header';
 import { SiteFooter } from '@/components/site-footer';
-import { PropertyCard, type PropertyCardData } from '@/components/property-card';
+import type { PropertyCardData } from '@/components/property-card';
 import { RecordSpine } from '@/components/record-spine';
-import { Button, Badge } from '@/components/ui';
 import { HeroSearch } from './hero-search';
-import { serverApi } from '@/lib/api';
+import { Skyline } from '@/components/brand/skyline';
+import { QuickPaths } from '@/components/landing/quick-paths';
+import { ExploreSection } from '@/components/landing/explore-section';
+import { ServicesSection } from '@/components/landing/services-section';
+import { HowItWorksSection } from '@/components/landing/how-it-works-section';
+import { CtaBand } from '@/components/landing/cta-band';
+import { resolveListingHref } from '@/lib/explore-query';
+import { serverApi, serverApiOrNull } from '@/lib/api';
 
 export const metadata: Metadata = {
   title: 'Odibrick — find a home you can trust',
@@ -27,32 +32,12 @@ const SPECIMEN = [
   { title: 'Day 1 condition report', detail: '38 photographs, 6 rooms, meter readings', occurred_at: '2026-06-12T13:20:00Z' },
 ];
 
-const WHY = [
-  {
-    label: 'Verification',
-    title: 'A badge means someone checked',
-    body: 'Ownership papers, identity and address are reviewed by our team before a listing goes live. Where a check has not been done, we say so instead of showing a badge.',
-  },
-  {
-    label: 'Legal',
-    title: 'A lawyer approves the agreement',
-    body: 'Clauses are drafted from a reviewed library, discussed with both parties on a video consultation, and approved by a qualified professional before anyone signs.',
-  },
-  {
-    label: 'Payments',
-    title: 'Every rupee has a reference',
-    body: 'Deposits, rent and fees sit on a ledger with a reference number, a due date and a receipt. Nothing is marked paid without a bank or gateway reference behind it.',
-  },
-  {
-    label: 'Records',
-    title: 'The property has a memory',
-    body: 'A timestamped condition report on day one, maintenance events during the tenancy, and a move-out report compared against the original — room by room.',
-  },
-];
-
 export default async function HomePage() {
   let featured: PropertyCardData[] = [];
   let total = 0;
+  let fetchFailed = false;
+  const me = await serverApiOrNull<{ fullName: string; roles: string[] }>('/auth/me');
+  const listHref = resolveListingHref(me);
   try {
     const result = await serverApi<SearchResponse>('/properties', {
       query: { perPage: 6, sort: 'NEWEST', listingType: 'RENT' },
@@ -61,182 +46,93 @@ export default async function HomePage() {
     total = result.meta.total;
   } catch {
     featured = [];
+    fetchFailed = true;
   }
 
   return (
     <>
-      <SiteHeader transparent />
+      <SiteHeader variant="landing" />
 
       {/* ---------------------------------------------------------------- hero */}
-      <section className="relative overflow-hidden bg-ink pb-16 pt-28 text-white sm:pb-24 sm:pt-36">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.18]"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(90deg, rgba(255,255,255,0.35) 0 1px, transparent 1px 44px), repeating-linear-gradient(0deg, rgba(255,255,255,0.35) 0 1px, transparent 1px 44px)',
-          }}
-        />
-        <div className="relative mx-auto grid max-w-[1180px] gap-12 px-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
-          <div>
-            <p className="font-mono text-eyebrow uppercase text-ochre">Hyderabad · Bengaluru · Pune</p>
-            <h1 className="mt-4 font-display text-hero font-semibold">
-              Find a home
+      <section className="brickgrid relative overflow-hidden bg-brand-green pt-10 font-brand-sans text-white md:pt-16">
+        <div className="relative z-[2] mx-auto grid w-[calc(100%-36px)] max-w-[1240px] items-end gap-12 md:w-[calc(100%-64px)] lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
+          <div className="min-w-0 pb-16 lg:pb-[72px]">
+            <p className="brand-label text-brand-sage">Property, protected · Across India</p>
+            <h1 className="my-5 font-brand-serif text-[clamp(44px,5.4vw,76px)] font-semibold leading-[1.02] tracking-[-0.015em]">
+              Find a home.
               <br />
-              you can trust.
+              <em className="font-normal italic text-brand-sage">Keep it protected.</em>
             </h1>
-            <p className="mt-6 max-w-lg text-[17px] leading-relaxed text-white/75">
-              Search verified properties, complete the agreement with a lawyer on a video call, pay on a
+            <p className="mb-8 max-w-[500px] text-[17px] leading-[1.55] text-[#cfdcd6] sm:text-[18px]">
+              Search verified homes, complete the agreement with a lawyer on a video call, pay on a
               recorded ledger, and document the flat from the day you get the keys.
             </p>
 
-            <div className="mt-8">
-              <HeroSearch />
-            </div>
+            <HeroSearch listHref={listHref} />
 
-            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-white/60">
+            <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] text-[#cfdcd6]">
               <span>
-                <strong className="font-mono text-white">{total || '—'}</strong> homes listed
+                <strong className="font-semibold text-white">{total || '—'}</strong> homes listed
               </span>
               <span>Free, unlimited listings for owners, agents and builders</span>
             </div>
           </div>
 
-          {/* The signature: an actual tenancy record, not an illustration. */}
-          <div className="rounded-card border border-white/15 bg-white/[0.04] p-6 backdrop-blur-sm">
-            <div className="flex items-center justify-between">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ochre">Tenancy record</p>
-              <span className="font-mono text-[11px] text-white/40">ODB-TNY-2026-000412</span>
-            </div>
-            <div className="mt-5 [&_.spine::before]:bg-white/20 [&_.spine-node::before]:border-white/30 [&_.spine-node::before]:bg-ink">
-              <div className="text-white [&_p.font-mono]:text-white/45 [&_p.text-muted]:text-white/55">
-                <RecordSpine events={SPECIMEN} dense />
+          {/* Arched architectural visual & signature tenancy record */}
+          <div className="relative hidden min-h-[580px] self-stretch lg:block">
+            <div className="brickgrid absolute inset-x-0 bottom-0 top-2.5 overflow-hidden rounded-t-[200px] border border-white/10 bg-brand-forest">
+              <div className="relative z-[2] flex h-full flex-col justify-start px-12 pb-36 pt-24">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <p className="brand-label text-[11px] text-brand-sage">Tenancy record</p>
+                  <span className="font-mono text-[11px] text-white/45">ODB-TNY-2026-000412</span>
+                </div>
+                <div className="mt-4 [&_.spine-node::before]:border-white/30 [&_.spine-node::before]:bg-brand-forest [&_.spine::before]:bg-white/20">
+                  <div className="text-white [&_p.font-mono]:text-brand-sage/80 [&_p.text-muted]:text-[#cfdcd6]">
+                    <RecordSpine events={SPECIMEN} dense />
+                  </div>
+                </div>
               </div>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-b from-transparent via-transparent to-brand-forest/70"
+              />
             </div>
-            <p className="mt-5 border-t border-white/10 pt-4 text-[13px] leading-relaxed text-white/50">
-              Every tenancy on Odibrick keeps a record like this one. Both parties can see it, and it is what
-              a deposit dispute is decided against.
-            </p>
-          </div>
-        </div>
-      </section>
 
-      {/* ----------------------------------------------------------------- why */}
-      <section className="mx-auto max-w-[1180px] px-5 py-20">
-        <div className="max-w-2xl">
-          <p className="eyebrow">Why Odibrick</p>
-          <h2 className="mt-3 font-display text-display font-semibold">
-            Most portals stop at the phone number. We start there.
-          </h2>
-        </div>
-
-        <div className="mt-12 grid gap-px overflow-hidden rounded-card border border-line bg-line sm:grid-cols-2">
-          {WHY.map((item) => (
-            <div key={item.label} className="bg-white p-7">
-              <p className="eyebrow text-seal">{item.label}</p>
-              <h3 className="mt-3 font-display text-xl font-semibold">{item.title}</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-muted">{item.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------ listings */}
-      <section className="border-y border-line bg-white py-20">
-        <div className="mx-auto max-w-[1180px] px-5">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="eyebrow">Recently listed</p>
-              <h2 className="mt-3 font-display text-display font-semibold">Homes on the platform</h2>
-            </div>
-            <Button href="/properties?listingType=RENT" variant="secondary">
-              See all homes
-            </Button>
-          </div>
-
-          {featured.length ? (
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {featured.map((property) => (
-                <PropertyCard key={property.id} property={property} />
-              ))}
-            </div>
-          ) : (
-            <p className="mt-10 rounded-card border border-dashed border-line px-6 py-10 text-center text-muted">
-              Listings will appear here once the platform has published inventory in your city.
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* -------------------------------------------------------------- agents */}
-      <section id="for-agents" className="mx-auto max-w-[1180px] px-5 py-20">
-        <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
-          <div>
-            <p className="eyebrow">For agents and builders</p>
-            <h2 className="mt-3 font-display text-display font-semibold">
-              Listing is free. Attention is what costs money.
-            </h2>
-            <p className="mt-5 text-[15px] leading-relaxed text-muted">
-              Upload as much inventory as you like, with no cap and no per-listing fee. When you want reach,
-              Cambliss runs the campaign: creative, paid media, landing pages and qualified leads, with the
-              performance reported back into your dashboard.
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Button href="/register?role=AGENT">Create an agent account</Button>
-              <Button href="/for-agents" variant="secondary">
-                See marketing packages
-              </Button>
+            <div className="guard absolute -left-[34px] bottom-6 z-[3] rounded-[4px] bg-brand-ivory px-[26px] py-4 text-center text-brand-green shadow-brand">
+              <div className="brand-label text-[11px] text-brand-stone">On the record</div>
+              <b className="mt-1 block font-brand-serif text-[20px] font-semibold">
+                Day 1 to Move-out
+              </b>
             </div>
           </div>
-
-          <div className="rounded-card border border-line bg-white p-7 shadow-card">
-            <p className="eyebrow">What you get free</p>
-            <ul className="mt-4 space-y-3 text-[15px]">
-              {[
-                'Unlimited property and unit inventory',
-                'Verified business profile with your RERA number',
-                'Leads, enquiries and site-visit tracking',
-                'Views and conversion analytics per listing',
-                'Transaction support through to the agreement',
-              ].map((item) => (
-                <li key={item} className="flex gap-3">
-                  <span aria-hidden className="mt-1 text-seal">
-                    ✓
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 border-t border-line pt-4 text-[13px] text-muted">
-              Paid packages start at ₹7,999 for 30 days and are billed separately from listings.
-            </p>
-          </div>
         </div>
+
+        <Skyline variant="hero" className="absolute inset-x-0 bottom-0 z-[1]" />
       </section>
 
-      {/* ---------------------------------------------------------------- note */}
-      <section className="border-t border-line bg-seal-soft py-14">
-        <div className="mx-auto max-w-[1180px] px-5">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="max-w-xl">
-              <Badge tone="seal">Straight answer</Badge>
-              <p className="mt-3 font-display text-xl font-semibold">
-                Odibrick is not an insurer, a bank or your lawyer’s replacement.
-              </p>
-              <p className="mt-2 text-[15px] text-muted">
-                We coordinate verification, documentation and records. Agreements are approved by qualified
-                legal professionals. Protection products, where offered, are issued by licensed insurers.
-                We say which is which on every screen.
-              </p>
-            </div>
-            <Link href="/how-it-works" className="font-medium text-seal underline underline-offset-4">
-              How the process works
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* ---------------------------------------------------------- quick paths */}
+      <QuickPaths
+        listHref={listHref}
+        professionalHref="/for-agents"
+      />
 
-      <SiteFooter />
+      {/* ------------------------------------------------------------- explore */}
+      <ExploreSection
+        initialRentData={featured}
+        initialRentTotal={total}
+        initialFailed={fetchFailed}
+      />
+
+      {/* ------------------------------------------------------------ services */}
+      <ServicesSection />
+
+      {/* -------------------------------------------------------- how it works */}
+      <HowItWorksSection ownerListHref={listHref} />
+
+      {/* ----------------------------------------------------------------- cta */}
+      <CtaBand listHref={listHref} />
+
+      <SiteFooter variant="landing" />
     </>
   );
 }

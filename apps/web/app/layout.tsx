@@ -5,6 +5,8 @@ import './globals.css';
 const display = localFont({
   src: [
     { path: './fonts/fraunces-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/fraunces-latin-400-italic.woff2', weight: '400', style: 'italic' },
+    { path: './fonts/fraunces-latin-500-italic.woff2', weight: '500', style: 'italic' },
     { path: './fonts/fraunces-latin-600-normal.woff2', weight: '600', style: 'normal' },
     { path: './fonts/fraunces-latin-700-normal.woff2', weight: '700', style: 'normal' },
   ],
@@ -31,6 +33,25 @@ const mono = localFont({
   display: 'swap',
 });
 
+const barlow = localFont({
+  src: [
+    { path: './fonts/barlow-latin-400-normal.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/barlow-latin-500-normal.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/barlow-latin-600-normal.woff2', weight: '600', style: 'normal' },
+  ],
+  variable: '--font-barlow',
+  display: 'swap',
+});
+
+const barlowCondensed = localFont({
+  src: [
+    { path: './fonts/barlow-semi-condensed-latin-500-normal.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/barlow-semi-condensed-latin-600-normal.woff2', weight: '600', style: 'normal' },
+  ],
+  variable: '--font-barlow-condensed',
+  display: 'swap',
+});
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://odibrick.com';
 
 export const metadata: Metadata = {
@@ -41,6 +62,10 @@ export const metadata: Metadata = {
   },
   description:
     'Find a verified home, complete the agreement with a real lawyer, pay through a recorded ledger, and document the property from day one.',
+  icons: {
+    icon: '/brand/odibrick-monogram.png',
+    apple: '/brand/odibrick-monogram.png',
+  },
   openGraph: {
     type: 'website',
     siteName: 'Odibrick',
@@ -51,7 +76,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-IN" className={`${display.variable} ${body.variable} ${mono.variable}`}>
+    <html
+      lang="en-IN"
+      className={`${display.variable} ${body.variable} ${mono.variable} ${barlow.variable} ${barlowCondensed.variable}`}
+    >
       <body>{children}</body>
     </html>
   );
