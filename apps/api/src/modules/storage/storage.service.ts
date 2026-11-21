@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, randomUUID } from 'crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import * as path from 'path';
@@ -445,6 +445,7 @@ export class StorageService {
     private readonly audit: AuditService,
     private readonly notify: NotificationsService,
   ) {
+    this.getSigningSecret();
     this.driverName = (this.config.get<string>('storage.driver') || 'LOCAL').toUpperCase() === 'S3' ? 'S3' : 'LOCAL';
 
     if (this.driverName === 'S3') {
@@ -1082,10 +1083,28 @@ export class StorageService {
 
   /** Read file securely via signed link HMAC validation */
   async readSigned(documentId: number, userId: number, exp: number, sig: string) {
+    if (
+      !Number.isInteger(documentId) ||
+      documentId <= 0 ||
+      !Number.isInteger(userId) ||
+      userId <= 0 ||
+      !Number.isInteger(exp) ||
+      exp <= 0 ||
+      !sig ||
+      typeof sig !== 'string'
+    ) {
+      throw new ForbiddenException('This link is not valid.');
+    }
+
     if (exp < Math.floor(Date.now() / 1000))
       throw new ForbiddenException('This link expired. Open the document again.');
-    if (this.sign(`${documentId}.${userId}.${exp}`) !== sig)
+
+    const expectedSig = this.sign(`${documentId}.${userId}.${exp}`);
+    const sigBuf = Buffer.from(sig, 'utf8');
+    const expectedBuf = Buffer.from(expectedSig, 'utf8');
+    if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
       throw new ForbiddenException('This link is not valid.');
+    }
 
     const doc = await this.db.one<any>(
       'SELECT * FROM documents WHERE id = ? AND deleted_at IS NULL',
@@ -1233,8 +1252,19 @@ export class StorageService {
     return this.driverName;
   }
 
+  private getSigningSecret(): string {
+    const env = this.config.get<string>('app.env') || process.env.NODE_ENV || 'development';
+    const secret = this.config.get<string>('auth.accessSecret') || '';
+    if (env === 'production' && (!secret || secret === 'dev-access-secret' || secret.length < 16)) {
+      throw new Error(
+        'Unsafe or missing JWT_ACCESS_SECRET in production. Cannot sign or verify private document links with development fallback.',
+      );
+    }
+    return secret || 'dev-access-secret';
+  }
+
   private sign(payload: string): string {
-    return createHmac('sha256', this.config.get('auth.accessSecret')!)
+    return createHmac('sha256', this.getSigningSecret())
       .update(payload)
       .digest('hex')
       .slice(0, 32);

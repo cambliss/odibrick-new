@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   escapeXml,
@@ -241,6 +241,138 @@ describe('Storage Module & Fallback SVG Tests', () => {
       expect((health as any).accessKeyId).toBeUndefined();
       expect((health as any).secretAccessKey).toBeUndefined();
       expect((health as any).bucket).toBeUndefined();
+    });
+
+    it('rejects unsafe development signing-secret fallbacks in production', () => {
+      const mockConfig = {
+        get: jest.fn((key: string) => {
+          if (key === 'app.env') return 'production';
+          if (key === 'auth.accessSecret') return 'dev-access-secret';
+          if (key === 'storage.driver') return 'LOCAL';
+          return undefined;
+        }),
+      } as unknown as ConfigService;
+
+      expect(
+        () => new StorageService(mockConfig, {} as any, {} as any, {} as any),
+      ).toThrow('Unsafe or missing JWT_ACCESS_SECRET in production');
+    });
+
+    it('reports S3 health down when bucket access is denied (403)', async () => {
+      const mockConfig = {
+        get: jest.fn((key: string) => {
+          if (key === 'app.env') return 'production';
+          if (key === 'auth.accessSecret') return 'prod-secret-key-at-least-32-chars-long';
+          if (key === 'storage.driver') return 'S3';
+          if (key === 'storage.s3Bucket') return 'odibrick-prod-r2';
+          if (key === 'storage.awsRegion') return 'auto';
+          if (key === 'storage.s3Endpoint') return 'https://acct.r2.cloudflarestorage.com';
+          if (key === 'storage.awsAccessKeyId') return 'key';
+          if (key === 'storage.awsSecretAccessKey') return 'secret';
+          return undefined;
+        }),
+      } as unknown as ConfigService;
+
+      const service = new StorageService(mockConfig, {} as any, {} as any, {} as any);
+      const accessDenied: any = new Error('AccessDenied');
+      accessDenied.name = 'AccessDenied';
+      accessDenied.$metadata = { httpStatusCode: 403 };
+      jest.spyOn((service as any).driver.client, 'send').mockRejectedValueOnce(accessDenied);
+
+      const health = await service.checkHealth();
+      expect(health.driver).toBe('S3');
+      expect(health.status).toBe('down');
+    });
+  });
+
+  describe('Signed URLs & Document Authorization Security', () => {
+    const createService = (dbOverrides: any = {}) => {
+      const mockConfig = {
+        get: jest.fn((key: string) => {
+          if (key === 'app.env') return 'production';
+          if (key === 'auth.accessSecret') return 'prod-secret-key-at-least-32-chars-long';
+          if (key === 'storage.driver') return 'LOCAL';
+          if (key === 'storage.localRoot') return '/tmp/storage-test';
+          if (key === 'storage.signedUrlTtl') return 300;
+          return undefined;
+        }),
+      } as unknown as ConfigService;
+      const mockDb = {
+        one: jest.fn(),
+        insert: jest.fn().mockResolvedValue(1),
+        ...dbOverrides,
+      };
+      return new StorageService(mockConfig, mockDb as any, {} as any, {} as any);
+    };
+
+    it('rejects expired, tampered, and malformed signed download tokens', async () => {
+      const service = createService({
+        one: jest.fn().mockResolvedValue({
+          id: 10,
+          owner_user_id: 1,
+          uploaded_by: 1,
+          visibility: 'PRIVATE',
+          storage_key: 'vault/USR-1/kyc/2026-10/doc.pdf',
+          mime_type: 'application/pdf',
+          title: 'Passport',
+        }),
+      });
+
+      const ownerUser: any = { id: 1, roles: ['USER'], permissions: [] };
+      const { url } = await service.signedLink(ownerUser, 10);
+      const parsed = new URL(`https://api.odibrick.com${url}`);
+      const exp = Number(parsed.searchParams.get('exp'));
+      const sig = parsed.searchParams.get('sig')!;
+      const u = Number(parsed.searchParams.get('u'));
+
+      // Expired
+      await expect(service.readSigned(10, u, Math.floor(Date.now() / 1000) - 10, sig)).rejects.toThrow(
+        ForbiddenException,
+      );
+      // Tampered signature
+      await expect(service.readSigned(10, u, exp, `${sig.slice(0, -1)}0`)).rejects.toThrow(
+        ForbiddenException,
+      );
+      // Tampered userId
+      await expect(service.readSigned(10, u + 1, exp, sig)).rejects.toThrow(ForbiddenException);
+      // Malformed / NaN inputs
+      await expect(service.readSigned(10, Number.NaN, exp, sig)).rejects.toThrow(ForbiddenException);
+      await expect(service.readSigned(10, u, Number.NaN, sig)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('enforces ownership/RBAC on authenticated document downloads', async () => {
+      const service = createService({
+        one: jest.fn().mockResolvedValue({
+          id: 10,
+          owner_user_id: 1,
+          uploaded_by: 1,
+          visibility: 'PRIVATE',
+          context_type: null,
+          context_id: null,
+          storage_key: 'vault/USR-1/kyc/2026-10/doc.pdf',
+        }),
+      });
+
+      const otherUser: any = { id: 99, roles: ['USER'], permissions: [] };
+      await expect(service.streamAuthenticated(otherUser, 10)).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws NotFoundException (never SVG) for missing documents/ and inspections/ keys in S3Driver', async () => {
+      const driver = new S3Driver({
+        bucket: 'test-bucket',
+        region: 'auto',
+        accessKeyId: 'test-key',
+        secretAccessKey: 'test-secret',
+        endpoint: 'https://test-account.r2.cloudflarestorage.com',
+      });
+
+      for (const privateKey of ['documents/USR-1/2026-10/deed.pdf', 'inspections/USR-1/2026-10/photo.jpg']) {
+        const notFoundErr: any = new Error('NoSuchKey');
+        notFoundErr.name = 'NoSuchKey';
+        notFoundErr.$metadata = { httpStatusCode: 404 };
+        jest.spyOn((driver as any).client, 'send').mockRejectedValueOnce(notFoundErr);
+        await expect(driver.get(privateKey)).rejects.toThrow(NotFoundException);
+      }
     });
   });
 });

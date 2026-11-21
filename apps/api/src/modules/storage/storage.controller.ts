@@ -29,6 +29,76 @@ import {
 const ALLOWED_UPLOAD_FOLDERS = new Set(['properties', 'documents', 'profiles', 'misc', 'inspections']);
 const MAX_UPLOAD_SIZE_BYTES = 15_728_640; // 15 MB
 
+const PRIVATE_STORAGE_SEGMENTS = new Set([
+  'vault',
+  'kyc',
+  'agreements',
+  'documents',
+  'inspections',
+  'misc',
+  'legal',
+  'contracts',
+  'receipts',
+  'disputes',
+  'private',
+]);
+
+const LEGACY_PUBLIC_IMAGE_KEY = /^img_[a-zA-Z0-9_-]+$/;
+
+/**
+ * Validates and classifies a storage key requested via the public storage route.
+ * Rejects traversal, double-encoding, null bytes, private namespaces, and any
+ * key outside the conservative public allowlist.
+ */
+export function resolvePublicStorageKey(rawKey: string):
+  | { ok: true; key: string }
+  | { ok: false; status: 400 | 403; message: string } {
+  if (!rawKey || typeof rawKey !== 'string' || rawKey.includes('\0')) {
+    return { ok: false, status: 400, message: 'Invalid storage key path.' };
+  }
+
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(rawKey);
+  } catch {
+    return { ok: false, status: 400, message: 'Invalid storage key path.' };
+  }
+
+  // Reject double-encoded traversal or separator smuggling (e.g. %252e%252e or %252f)
+  if (/%2e|%2f|%5c|%00/i.test(decoded) || decoded.includes('\0') || decoded.includes('\\')) {
+    return { ok: false, status: 400, message: 'Invalid storage key path.' };
+  }
+
+  const trimmed = decoded.replace(/^\/+/, '');
+  if (!trimmed) {
+    return { ok: false, status: 400, message: 'Invalid storage key path.' };
+  }
+
+  const segments = trimmed.split('/');
+  if (segments.some((seg) => seg === '' || seg === '.' || seg === '..')) {
+    return { ok: false, status: 400, message: 'Invalid storage key path.' };
+  }
+
+  const lowerSegments = segments.map((s) => s.toLowerCase());
+  if (lowerSegments.some((seg) => PRIVATE_STORAGE_SEGMENTS.has(seg))) {
+    return { ok: false, status: 403, message: 'Direct access to protected storage files is prohibited.' };
+  }
+
+  const first = lowerSegments[0];
+  const isAllowedPublic =
+    first === 'properties' ||
+    first === 'profiles' ||
+    first === 'prop' ||
+    (first === 'demo' && lowerSegments[1] === 'properties') ||
+    (segments.length === 1 && LEGACY_PUBLIC_IMAGE_KEY.test(segments[0]));
+
+  if (!isAllowedPublic) {
+    return { ok: false, status: 403, message: 'Direct access to protected storage files is prohibited.' };
+  }
+
+  return { ok: true, key: trimmed };
+}
+
 @Controller()
 export class StorageController {
   constructor(private readonly storage: StorageService) {}
@@ -265,28 +335,13 @@ export class StorageController {
   @Public()
   @Get('storage/:key(*)')
   async servePublicStorage(@Param('key') key: string, @Res() res: Response) {
-    const decoded = decodeURIComponent(key);
-    const normalizedKey = decoded.replace(/\\/g, '/').replace(/^\/+/, '');
-
-    // Path traversal protection
-    if (normalizedKey.includes('..')) {
-      res.status(400).json({ statusCode: 400, message: 'Invalid storage key path.' });
+    const resolved = resolvePublicStorageKey(key);
+    if (!resolved.ok) {
+      res.status(resolved.status).json({ statusCode: resolved.status, message: resolved.message });
       return;
     }
 
-    // Direct access to private vault, kyc or legal agreements is prohibited via public storage
-    const lowerKey = normalizedKey.toLowerCase();
-    if (
-      lowerKey.startsWith('vault/') ||
-      lowerKey.includes('/vault/') ||
-      lowerKey.startsWith('kyc/') ||
-      lowerKey.includes('/kyc/') ||
-      lowerKey.startsWith('agreements/') ||
-      lowerKey.includes('/agreements/')
-    ) {
-      res.status(403).json({ statusCode: 403, message: 'Direct access to protected vault files is prohibited.' });
-      return;
-    }
+    const normalizedKey = resolved.key;
 
     try {
       const buffer = await this.storage.readRaw(normalizedKey);

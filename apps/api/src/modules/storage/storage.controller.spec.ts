@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
-import { StorageController } from './storage.controller';
+import { StorageController, resolvePublicStorageKey } from './storage.controller';
 import { StorageService } from './storage.service';
 import { AuthUser } from '../../common/auth/auth.types';
 
@@ -81,5 +81,114 @@ describe('StorageController - D-17 Upload Restrictions', () => {
     await expect(
       controller.createDocument(testUser, null as any, {} as any, {} as any),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  describe('Public vs Private Namespace Policy (servePublicStorage)', () => {
+    const createMockRes = () => {
+      const headers: Record<string, any> = {};
+      const res: any = {
+        statusCode: 200,
+        body: undefined,
+        headers,
+        status: jest.fn((code: number) => {
+          res.statusCode = code;
+          return res;
+        }),
+        json: jest.fn((payload: any) => {
+          res.body = payload;
+          return res;
+        }),
+        setHeader: jest.fn((k: string, v: any) => {
+          headers[k] = v;
+        }),
+        send: jest.fn((buf: any) => {
+          res.body = buf;
+          return res;
+        }),
+      };
+      return res;
+    };
+
+    it('allows public property images, demo property images, profiles, and legacy img_ keys', async () => {
+      storage.readRaw = jest.fn().mockResolvedValue(Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+
+      for (const key of [
+        'properties/USR-1/2026-10/photo.jpg',
+        'demo/properties/PROP-1/photo-1.jpg',
+        'profiles/USR-1/avatar.jpg',
+        'img_living_001',
+      ]) {
+        const res = createMockRes();
+        await controller.servePublicStorage(key, res);
+        expect(res.statusCode).toBe(200);
+        expect(res.headers['X-Content-Type-Options']).toBe('nosniff');
+        expect(res.headers['Cache-Control']).toContain('public');
+      }
+    });
+
+    it('rejects public attempts to retrieve vault, kyc, agreements, documents, inspections, and misc objects with 403', async () => {
+      storage.readRaw = jest.fn();
+
+      const blockedKeys = [
+        'vault/USR-1/kyc/2026-10/passport.pdf',
+        'kyc/USR-1/id.pdf',
+        'agreements/TEN-1/lease.pdf',
+        'documents/USR-1/2026-10/deed.pdf',
+        'inspections/USR-1/2026-10/report.jpg',
+        'misc/USR-1/2026-10/notes.pdf',
+        'demo/private/secret.pdf',
+        'unknown-namespace/file.jpg',
+      ];
+
+      for (const key of blockedKeys) {
+        const res = createMockRes();
+        await controller.servePublicStorage(key, res);
+        expect(res.statusCode).toBe(403);
+      }
+      expect(storage.readRaw).not.toHaveBeenCalled();
+    });
+
+    it('rejects traversal, encoded, double-encoded, backslash, and null-byte path variants with 400', async () => {
+      storage.readRaw = jest.fn();
+
+      const maliciousKeys = [
+        '../vault/secret.pdf',
+        'properties/../../vault/secret.pdf',
+        '%2e%2e/vault/secret.pdf',
+        '%252e%252e/vault/secret.pdf',
+        'properties\\..\\vault\\secret.pdf',
+        'properties/photo.jpg%00.png',
+        '%E0%A4%A',
+      ];
+
+      for (const key of maliciousKeys) {
+        const resolved = resolvePublicStorageKey(key);
+        expect(resolved.ok).toBe(false);
+        const res = createMockRes();
+        await controller.servePublicStorage(key, res);
+        expect(res.statusCode).toBe(400);
+      }
+      expect(storage.readRaw).not.toHaveBeenCalled();
+    });
+
+    it('requires a valid signed link or authenticated user for private document downloads', async () => {
+      const res = createMockRes();
+      await controller.download(42, '', '', '', undefined as any, res);
+      expect(res.statusCode).toBe(401);
+      expect(res.body).toEqual({ statusCode: 401, message: 'Unauthorized access to document.' });
+    });
+
+    it('sets private no-store headers on signed document downloads', async () => {
+      storage.readSigned = jest.fn().mockResolvedValue({
+        buffer: Buffer.from('%PDF-1.4'),
+        mimeType: 'application/pdf',
+        filename: 'kyc-doc.pdf',
+      });
+      const res = createMockRes();
+      await controller.download(42, '1', String(Math.floor(Date.now() / 1000) + 300), 'valid-sig', undefined as any, res);
+      expect(res.headers['Cache-Control']).toBe('private, no-store');
+      expect(res.headers['X-Content-Type-Options']).toBe('nosniff');
+      expect(res.headers['Content-Type']).toBe('application/pdf');
+    });
   });
 });
