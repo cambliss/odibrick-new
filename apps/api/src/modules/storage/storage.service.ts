@@ -161,9 +161,24 @@ export interface StoredFile {
   mimeType: string;
 }
 
+export interface StorageReadMeta {
+  buffer: Buffer;
+  isFallback: boolean;
+  etag?: string;
+}
+
+export interface PublicStorageReadResult {
+  buffer: Buffer;
+  isFallback: boolean;
+  isSvgPlaceholder: boolean;
+  etag: string;
+  mimeType: string;
+}
+
 export interface StorageDriver {
   put(key: string, data: Buffer, mimeType?: string): Promise<void>;
   get(key: string): Promise<Buffer>;
+  getWithMeta?(key: string): Promise<StorageReadMeta>;
   remove(key: string): Promise<void>;
   exists(key: string): Promise<boolean>;
 }
@@ -275,9 +290,15 @@ export class LocalDriver implements StorageDriver {
   }
 
   async get(key: string): Promise<Buffer> {
+    const res = await this.getWithMeta(key);
+    return res.buffer;
+  }
+
+  async getWithMeta(key: string): Promise<StorageReadMeta> {
     const target = this.full(key);
     try {
-      return await fs.readFile(target);
+      const buffer = await fs.readFile(target);
+      return { buffer, isFallback: false };
     } catch {
       // If a property image is missing on disk, dynamically generate an SVG image
       if (
@@ -288,7 +309,7 @@ export class LocalDriver implements StorageDriver {
         key.startsWith('img_')
       ) {
         const fallbackSvg = generateFallbackSvg(key);
-        return Buffer.from(fallbackSvg, 'utf8');
+        return { buffer: Buffer.from(fallbackSvg, 'utf8'), isFallback: true };
       }
       throw new NotFoundException('File not found in storage.');
     }
@@ -363,6 +384,11 @@ export class S3Driver implements StorageDriver {
   }
 
   async get(key: string): Promise<Buffer> {
+    const res = await this.getWithMeta(key);
+    return res.buffer;
+  }
+
+  async getWithMeta(key: string): Promise<StorageReadMeta> {
     const sanitized = this.sanitizeKey(key);
     try {
       const res = await this.client.send(
@@ -377,7 +403,11 @@ export class S3Driver implements StorageDriver {
       }
 
       const byteArray = await (res.Body as any).transformToByteArray();
-      return Buffer.from(byteArray);
+      return {
+        buffer: Buffer.from(byteArray),
+        isFallback: false,
+        etag: res.ETag || undefined,
+      };
     } catch (err: any) {
       if (
         err.name === 'NoSuchKey' ||
@@ -392,7 +422,7 @@ export class S3Driver implements StorageDriver {
           key.startsWith('img_')
         ) {
           const fallbackSvg = generateFallbackSvg(key);
-          return Buffer.from(fallbackSvg, 'utf8');
+          return { buffer: Buffer.from(fallbackSvg, 'utf8'), isFallback: true };
         }
         throw new NotFoundException('File not found in S3 storage.');
       }
@@ -1238,6 +1268,49 @@ export class StorageService {
 
   async readRaw(key: string): Promise<Buffer> {
     return this.driver.get(key);
+  }
+
+  async readPublicObject(key: string): Promise<PublicStorageReadResult> {
+    const meta: StorageReadMeta = this.driver.getWithMeta
+      ? await this.driver.getWithMeta(key)
+      : { buffer: await this.driver.get(key), isFallback: false };
+
+    const ext = path.extname(key).toLowerCase();
+    let mimeType = 'application/octet-stream';
+    const detected = detectFileSignature(meta.buffer);
+    if (detected) {
+      mimeType = detected.mime;
+    } else if (meta.buffer.slice(0, 200).toString('utf8').includes('<svg')) {
+      mimeType = 'image/svg+xml';
+    } else if (['.jpg', '.jpeg', '.jfif', '.jfi'].includes(ext)) {
+      mimeType = 'image/jpeg';
+    } else if (ext === '.png') {
+      mimeType = 'image/png';
+    } else if (ext === '.webp') {
+      mimeType = 'image/webp';
+    } else if (ext === '.avif') {
+      mimeType = 'image/avif';
+    } else if (['.heic', '.heif'].includes(ext)) {
+      mimeType = 'image/heic';
+    } else if (ext === '.gif') {
+      mimeType = 'image/gif';
+    } else if (ext === '.svg') {
+      mimeType = 'image/svg+xml';
+    } else if (ext === '.pdf') {
+      mimeType = 'application/pdf';
+    }
+
+    const isSvgPlaceholder = !meta.isFallback && mimeType === 'image/svg+xml';
+    const rawEtag = meta.etag ? meta.etag.replace(/^"|"$/g, '') : sha256(meta.buffer).slice(0, 16);
+    const etag = `"${rawEtag}"`;
+
+    return {
+      buffer: meta.buffer,
+      isFallback: meta.isFallback,
+      isSvgPlaceholder,
+      etag,
+      mimeType,
+    };
   }
 
   async exists(key: string): Promise<boolean> {

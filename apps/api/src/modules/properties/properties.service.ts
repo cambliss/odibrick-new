@@ -7,6 +7,7 @@ import { newPublicId, propertySlug } from '../../common/util/ids';
 import { pageParams, paginate, Paginated } from '../../common/util/pagination';
 import { CreatePropertyDto, PropertySearchDto, UpdatePropertyDto } from './properties.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 
 const PUBLIC_STATUSES = ['ACTIVE', 'RENTED', 'SOLD'];
 
@@ -16,6 +17,7 @@ export class PropertiesService {
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly storage: StorageService,
   ) {}
 
   // -------------------------------------------------------------- search (public)
@@ -831,6 +833,13 @@ export class PropertiesService {
       if (!belongsToAuthorizedUser) {
         throw new ForbiddenException('Image storage key does not belong to the authorized user or property.');
       }
+    }
+
+    const existsInStorage = await this.storage.exists(cleanKey);
+    if (!existsInStorage) {
+      throw new BadRequestException(
+        'Uploaded image was not found in storage. Please re-upload the photograph before attaching it.',
+      );
     }
 
     const count = await this.db.one<{ c: number }>(

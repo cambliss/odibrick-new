@@ -334,7 +334,7 @@ export class StorageController {
   /** Public media/storage file serving endpoint for public assets like property photos */
   @Public()
   @Get('storage/:key(*)')
-  async servePublicStorage(@Param('key') key: string, @Res() res: Response) {
+  async servePublicStorage(@Param('key') key: string, @Res() res: Response, @Req() req?: Request) {
     const resolved = resolvePublicStorageKey(key);
     if (!resolved.ok) {
       res.status(resolved.status).json({ statusCode: resolved.status, message: resolved.message });
@@ -344,38 +344,55 @@ export class StorageController {
     const normalizedKey = resolved.key;
 
     try {
-      const buffer = await this.storage.readRaw(normalizedKey);
-      const ext = path.extname(normalizedKey).toLowerCase();
-      let mimeType = 'application/octet-stream';
+      const result = this.storage.readPublicObject
+        ? await this.storage.readPublicObject(normalizedKey)
+        : await (async () => {
+            const buffer = await this.storage.readRaw(normalizedKey);
+            const ext = path.extname(normalizedKey).toLowerCase();
+            const detected = detectFileSignature(buffer);
+            let mimeType = 'application/octet-stream';
+            if (detected) mimeType = detected.mime;
+            else if (buffer.slice(0, 200).toString('utf8').includes('<svg')) mimeType = 'image/svg+xml';
+            else if (['.jpg', '.jpeg', '.jfif', '.jfi'].includes(ext)) mimeType = 'image/jpeg';
+            else if (ext === '.png') mimeType = 'image/png';
+            else if (ext === '.webp') mimeType = 'image/webp';
+            else if (ext === '.avif') mimeType = 'image/avif';
+            else if (['.heic', '.heif'].includes(ext)) mimeType = 'image/heic';
+            else if (ext === '.gif') mimeType = 'image/gif';
+            else if (ext === '.svg') mimeType = 'image/svg+xml';
+            else if (ext === '.pdf') mimeType = 'application/pdf';
+            return {
+              buffer,
+              isFallback: false,
+              isSvgPlaceholder: mimeType === 'image/svg+xml',
+              etag: `"len-${buffer.length}"`,
+              mimeType,
+            };
+          })();
 
-      const detected = detectFileSignature(buffer);
-      if (detected) {
-        mimeType = detected.mime;
-      } else if (buffer.slice(0, 100).toString().includes('<svg')) {
-        mimeType = 'image/svg+xml';
-      } else if (['.jpg', '.jpeg', '.jfif', '.jfi'].includes(ext)) {
-        mimeType = 'image/jpeg';
-      } else if (ext === '.png') {
-        mimeType = 'image/png';
-      } else if (ext === '.webp') {
-        mimeType = 'image/webp';
-      } else if (ext === '.avif') {
-        mimeType = 'image/avif';
-      } else if (['.heic', '.heif'].includes(ext)) {
-        mimeType = 'image/heic';
-      } else if (ext === '.gif') {
-        mimeType = 'image/gif';
-      } else if (ext === '.svg') {
-        mimeType = 'image/svg+xml';
-      } else if (ext === '.pdf') {
-        mimeType = 'application/pdf';
+      const mediaStatus = result.isFallback
+        ? 'missing-fallback'
+        : result.isSvgPlaceholder
+          ? 'placeholder'
+          : 'stored';
+      const cacheControl = result.isFallback
+        ? 'public, max-age=60, must-revalidate'
+        : 'public, max-age=86400, stale-while-revalidate=604800';
+
+      res.setHeader('ETag', result.etag);
+      res.setHeader('Cache-Control', cacheControl);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Odibrick-Media-Status', mediaStatus);
+
+      const ifNoneMatch = req?.headers?.['if-none-match'];
+      if (ifNoneMatch && ifNoneMatch === result.etag) {
+        res.status(304).end();
+        return;
       }
 
-      res.setHeader('Content-Type', mimeType);
-      res.setHeader('Content-Length', buffer.length);
-      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.send(buffer);
+      res.setHeader('Content-Type', result.mimeType);
+      res.setHeader('Content-Length', result.buffer.length);
+      res.send(result.buffer);
     } catch {
       res.status(404).json({ statusCode: 404, message: 'File not found in storage.' });
     }

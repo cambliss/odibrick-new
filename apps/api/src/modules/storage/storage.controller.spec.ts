@@ -190,5 +190,68 @@ describe('StorageController - D-17 Upload Restrictions', () => {
       expect(res.headers['X-Content-Type-Options']).toBe('nosniff');
       expect(res.headers['Content-Type']).toBe('application/pdf');
     });
+
+    it('sets ETag, handles 304 If-None-Match, and distinguishes stored vs placeholder vs missing-fallback caching', async () => {
+      const createRes = () => {
+        const headers: Record<string, any> = {};
+        const res: any = {
+          statusCode: 200,
+          body: undefined,
+          headers,
+          status: jest.fn((c: number) => { res.statusCode = c; return res; }),
+          json: jest.fn((p: any) => { res.body = p; return res; }),
+          setHeader: jest.fn((k: string, v: any) => { headers[k] = v; }),
+          send: jest.fn((b: any) => { res.body = b; return res; }),
+          end: jest.fn(() => res),
+        };
+        return res;
+      };
+
+      // Stored real photograph -> long public cache + ETag + stored header
+      storage.readPublicObject = jest.fn().mockResolvedValueOnce({
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+        isFallback: false,
+        isSvgPlaceholder: false,
+        etag: '"etag-123"',
+        mimeType: 'image/jpeg',
+      });
+      const res1 = createRes();
+      await controller.servePublicStorage('properties/USR-1/2026-11/photo.jpg', res1, { headers: {} } as any);
+      expect(res1.statusCode).toBe(200);
+      expect(res1.headers['ETag']).toBe('"etag-123"');
+      expect(res1.headers['X-Odibrick-Media-Status']).toBe('stored');
+      expect(res1.headers['Cache-Control']).toBe('public, max-age=86400, stale-while-revalidate=604800');
+
+      // Conditional 304 Not Modified on matching If-None-Match
+      storage.readPublicObject = jest.fn().mockResolvedValueOnce({
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+        isFallback: false,
+        isSvgPlaceholder: false,
+        etag: '"etag-123"',
+        mimeType: 'image/jpeg',
+      });
+      const res304 = createRes();
+      await controller.servePublicStorage(
+        'properties/USR-1/2026-11/photo.jpg',
+        res304,
+        { headers: { 'if-none-match': '"etag-123"' } } as any,
+      );
+      expect(res304.statusCode).toBe(304);
+      expect(res304.end).toHaveBeenCalled();
+
+      // Missing-object fallback -> short cache + missing-fallback header
+      storage.readPublicObject = jest.fn().mockResolvedValueOnce({
+        buffer: Buffer.from('<svg></svg>'),
+        isFallback: true,
+        isSvgPlaceholder: false,
+        etag: '"fallback-1"',
+        mimeType: 'image/svg+xml',
+      });
+      const resFallback = createRes();
+      await controller.servePublicStorage('properties/USR-1/2026-11/missing.jpg', resFallback, { headers: {} } as any);
+      expect(resFallback.statusCode).toBe(200);
+      expect(resFallback.headers['X-Odibrick-Media-Status']).toBe('missing-fallback');
+      expect(resFallback.headers['Cache-Control']).toBe('public, max-age=60, must-revalidate');
+    });
   });
 });

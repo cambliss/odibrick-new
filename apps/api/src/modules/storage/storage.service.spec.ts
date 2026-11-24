@@ -374,6 +374,138 @@ describe('Storage Module & Fallback SVG Tests', () => {
         await expect(driver.get(privateKey)).rejects.toThrow(NotFoundException);
       }
     });
+
+    it('allows authorized owner download via streamAuthenticated and logs DOWNLOAD access', async () => {
+      const mockDb = {
+        one: jest.fn().mockResolvedValue({
+          id: 27,
+          owner_user_id: 1,
+          uploaded_by: 1,
+          visibility: 'PRIVATE',
+          storage_key: 'vault/USR-1/kyc/2026-10/address-proof.pdf',
+          mime_type: 'application/pdf',
+          title: 'Address Proof',
+        }),
+        insert: jest.fn().mockResolvedValue(1),
+      };
+      const service = createService(mockDb);
+      const pdfBytes = Buffer.from('%PDF-1.4 sample');
+      jest.spyOn((service as any).driver, 'get').mockResolvedValueOnce(pdfBytes);
+
+      const ownerUser: any = { id: 1, roles: ['OWNER'], permissions: [] };
+      const res = await service.streamAuthenticated(ownerUser, 27);
+      expect(Buffer.compare(res.buffer, pdfBytes)).toBe(0);
+      expect(res.mimeType).toBe('application/pdf');
+      expect(mockDb.insert).toHaveBeenCalledWith(
+        'document_access_logs',
+        expect.objectContaining({ document_id: 27, user_id: 1, action: 'DOWNLOAD' }),
+      );
+    });
+  });
+
+  describe('R2 Reliability, MIME Detection, Placeholders & Restart Independence', () => {
+    const createS3Service = () => {
+      const mockConfig = {
+        get: jest.fn((key: string) => {
+          if (key === 'app.env') return 'production';
+          if (key === 'auth.accessSecret') return 'prod-secret-key-at-least-32-chars-long';
+          if (key === 'storage.driver') return 'S3';
+          if (key === 'storage.s3Bucket') return 'odibrick-production-storage';
+          if (key === 'storage.awsRegion') return 'auto';
+          if (key === 'storage.s3Endpoint') return 'https://acct.r2.cloudflarestorage.com';
+          if (key === 'storage.awsAccessKeyId') return 'r2-key';
+          if (key === 'storage.awsSecretAccessKey') return 'r2-secret';
+          return undefined;
+        }),
+      } as unknown as ConfigService;
+      return new StorageService(mockConfig, {} as any, {} as any, {} as any);
+    };
+
+    it('uploads valid JPEG, WebP, and AVIF images directly to R2 with exact ContentType', async () => {
+      const service = createS3Service();
+      const sendSpy = jest.spyOn((service as any).driver.client, 'send').mockResolvedValue({ ETag: '"abc"' } as any);
+
+      const samples = [
+        { name: 'living.jpg', buf: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), expectedMime: 'image/jpeg' },
+        { name: 'kitchen.webp', buf: Buffer.from([0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]), expectedMime: 'image/webp' },
+        { name: 'balcony.avif', buf: Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]), expectedMime: 'image/avif' },
+      ];
+
+      for (const s of samples) {
+        const stored = await service.store(
+          { originalname: s.name, mimetype: s.expectedMime, buffer: s.buf, size: s.buf.length } as any,
+          'properties/USR-1',
+        );
+        expect(stored.mimeType).toBe(s.expectedMime);
+        expect(stored.storageKey.startsWith('properties/USR-1/')).toBe(true);
+      }
+      expect(sendSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it('propagates R2 upload failure without returning a storage key', async () => {
+      const service = createS3Service();
+      jest.spyOn((service as any).driver.client, 'send').mockRejectedValueOnce(new Error('R2 write failed'));
+      const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+
+      await expect(
+        service.store(
+          { originalname: 'photo.jpg', mimetype: 'image/jpeg', buffer: jpg, size: jpg.length } as any,
+          'properties/USR-1',
+        ),
+      ).rejects.toThrow('R2 write failed');
+    });
+
+    it('identifies real R2 images, stored SVG placeholders, and missing-object fallbacks distinctly', async () => {
+      const service = createS3Service();
+      const sendSpy = jest.spyOn((service as any).driver.client, 'send');
+
+      // 1. Real AVIF photograph in R2
+      const avifBytes = new Uint8Array([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66]);
+      sendSpy.mockResolvedValueOnce({
+        ETag: '"etag-avif-1"',
+        Body: { transformToByteArray: async () => avifBytes },
+      } as any);
+      const realRes = await service.readPublicObject('properties/USR-1/2026-11/real.avif');
+      expect(realRes.isFallback).toBe(false);
+      expect(realRes.isSvgPlaceholder).toBe(false);
+      expect(realRes.mimeType).toBe('image/avif');
+      expect(realRes.etag).toBe('"etag-avif-1"');
+
+      // 2. Stored SVG placeholder under .jpg filename in R2
+      const svgBytes = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>', 'utf8');
+      sendSpy.mockResolvedValueOnce({
+        ETag: '"etag-svg-1"',
+        Body: { transformToByteArray: async () => svgBytes },
+      } as any);
+      const placeholderRes = await service.readPublicObject('demo/properties/PROP-1/photo-1.jpg');
+      expect(placeholderRes.isFallback).toBe(false);
+      expect(placeholderRes.isSvgPlaceholder).toBe(true);
+      expect(placeholderRes.mimeType).toBe('image/svg+xml');
+
+      // 3. Missing property object in R2 -> controlled fallback
+      const notFound: any = new Error('NoSuchKey');
+      notFound.name = 'NoSuchKey';
+      notFound.$metadata = { httpStatusCode: 404 };
+      sendSpy.mockRejectedValueOnce(notFound);
+      const fallbackRes = await service.readPublicObject('properties/USR-1/2026-11/missing.jpg');
+      expect(fallbackRes.isFallback).toBe(true);
+      expect(fallbackRes.mimeType).toBe('image/svg+xml');
+    });
+
+    it('retrieves objects across simulated Render restarts with zero local filesystem dependency', async () => {
+      const instanceAfterRestart = createS3Service();
+      const jpgBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+      jest.spyOn((instanceAfterRestart as any).driver.client, 'send').mockResolvedValueOnce({
+        ETag: '"persisted-in-r2"',
+        Body: { transformToByteArray: async () => jpgBytes },
+      } as any);
+
+      expect(instanceAfterRestart.getDriverName()).toBe('S3');
+      const res = await instanceAfterRestart.readPublicObject('properties/USR-1/2026-11/after-restart.jpg');
+      expect(res.isFallback).toBe(false);
+      expect(res.mimeType).toBe('image/jpeg');
+      expect(Buffer.compare(res.buffer, Buffer.from(jpgBytes))).toBe(0);
+    });
   });
 });
 

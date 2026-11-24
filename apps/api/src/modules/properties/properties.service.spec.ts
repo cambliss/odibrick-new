@@ -6,6 +6,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AuthUser } from '../../common/auth/auth.types';
 
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageService } from '../storage/storage.service';
 
 const owner: AuthUser = {
   id: 10, publicId: 'P1', email: 'o@example.com', fullName: 'Owner',
@@ -19,6 +20,7 @@ const verifier: AuthUser = {
 describe('PropertiesService', () => {
   let service: PropertiesService;
   let db: jest.Mocked<Partial<DatabaseService>>;
+  let storage: jest.Mocked<Partial<StorageService>>;
 
   beforeEach(async () => {
     db = {
@@ -28,12 +30,16 @@ describe('PropertiesService', () => {
       update: jest.fn().mockResolvedValue(1),
       execute: jest.fn().mockResolvedValue({ affectedRows: 1, insertId: 1 } as any),
     };
+    storage = {
+      exists: jest.fn().mockResolvedValue(true),
+    };
     const moduleRef = await Test.createTestingModule({
       providers: [
         PropertiesService,
         { provide: DatabaseService, useValue: db },
         { provide: AuditService, useValue: { record: jest.fn() } },
         { provide: NotificationsService, useValue: { send: jest.fn(), sendMany: jest.fn() } },
+        { provide: StorageService, useValue: storage },
       ],
     }).compile();
     service = moduleRef.get(PropertiesService);
@@ -141,6 +147,14 @@ describe('PropertiesService', () => {
         'property_images',
         expect.objectContaining({ storage_key: 'properties/P1/photo.jpg' }),
       );
+    });
+
+    it('refuses to attach an image key that does not exist in storage (prevents phantom DB records on failed R2 upload)', async () => {
+      (storage.exists as jest.Mock).mockResolvedValueOnce(false);
+      await expect(
+        service.attachImage(owner, 1, 'properties/P1/failed-upload.jpg'),
+      ).rejects.toThrow(BadRequestException);
+      expect(db.insert).not.toHaveBeenCalled();
     });
   });
 });
