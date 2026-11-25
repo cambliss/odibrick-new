@@ -23,6 +23,7 @@ export function PropertyActions({ propertyId, slug, signedIn, listingActive }: P
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [doneHref, setDoneHref] = useState<string>('/dashboard/applications');
 
   if (!listingActive) {
     return (
@@ -49,7 +50,7 @@ export function PropertyActions({ propertyId, slug, signedIn, listingActive }: P
     return (
       <div className="rounded-card border border-seal/25 bg-seal-soft px-4 py-4">
         <p className="font-medium text-seal-deep">{done}</p>
-        <Button href="/dashboard/applications" variant="ghost" size="sm" className="mt-2 px-0">
+        <Button href={doneHref} variant="ghost" size="sm" className="mt-2 px-0">
           Track it in your dashboard →
         </Button>
       </div>
@@ -60,10 +61,15 @@ export function PropertyActions({ propertyId, slug, signedIn, listingActive }: P
     setBusy(true);
     setError(null);
     try {
-      await api('/enquiries', {
+      const res = await api<{ id: number; status: string; conversationId?: number }>('/enquiries', {
         method: 'POST',
         body: JSON.stringify({ propertyId, message: message || undefined, source: 'PROPERTY_PAGE' }),
       });
+      setDoneHref(
+        res?.conversationId
+          ? `/dashboard/messages?contextType=ENQUIRY&conversationId=${res.conversationId}`
+          : '/dashboard/messages?contextType=ENQUIRY',
+      );
       setDone('Enquiry sent. The lister has been notified.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not send the enquiry. Try again.');
@@ -86,6 +92,7 @@ export function PropertyActions({ propertyId, slug, signedIn, listingActive }: P
           message: message || undefined,
         }),
       });
+      setDoneHref('/dashboard/applications');
       setDone('Application submitted. You will hear back from the owner.');
       router.refresh();
     } catch (err) {

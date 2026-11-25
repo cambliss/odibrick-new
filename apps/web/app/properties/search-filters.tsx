@@ -174,7 +174,7 @@ export function SearchFilters() {
           <p className="eyebrow">Trust</p>
           <div className="mt-2 space-y-1.5 text-[14px]">
             {[
-              ['verifiedOnly', 'Documents verified'],
+              ['verifiedOnly', 'Verified listings'],
               ['protectedOnly', 'Odibrick Protected'],
               ['availableNow', 'Available now'],
               ['petsAllowed', 'Pets allowed'],

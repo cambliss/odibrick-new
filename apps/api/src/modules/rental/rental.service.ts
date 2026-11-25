@@ -3,6 +3,8 @@ import { Request } from 'express';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CommunicationsService } from '../communications/communications.service';
+import { ConversationContextType } from '../communications/communications.dto';
 import { AuthUser } from '../../common/auth/auth.types';
 import { newPublicId, formatReference } from '../../common/util/ids';
 import { pageParams, paginate } from '../../common/util/pagination';
@@ -18,6 +20,7 @@ export class RentalService {
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly notify: NotificationsService,
+    private readonly comms: CommunicationsService,
   ) {}
 
   private assertContactVerifiedUser(user: AuthUser): void {
@@ -52,7 +55,21 @@ export class RentalService {
          AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR) LIMIT 1`,
       [dto.propertyId, user.id],
     );
-    if (recent) return { id: recent.id, status: 'ALREADY_SENT', message: 'You already contacted this listing today.' };
+    if (recent) {
+      const existingConv = await this.comms.getOrCreateConversation(
+        ConversationContextType.ENQUIRY,
+        recent.id,
+        undefined,
+        undefined,
+        user,
+      );
+      return {
+        id: recent.id,
+        status: 'ALREADY_SENT',
+        message: 'You already contacted this listing today.',
+        ...(existingConv?.id ? { conversationId: existingConv.id } : {}),
+      };
+    }
 
     const id = await this.db.insert('enquiries', {
       public_id: newPublicId(),
@@ -63,6 +80,26 @@ export class RentalService {
       source: dto.source ?? 'SEARCH',
     });
     await this.db.execute('UPDATE properties SET enquiry_count = enquiry_count + 1 WHERE id = ?', [dto.propertyId]);
+
+    const initialMessage = dto.message?.trim() || `Enquired about ${property.title}.`;
+    let conv: any;
+    try {
+      conv = await this.comms.getOrCreateConversation(
+        ConversationContextType.ENQUIRY,
+        id,
+        undefined,
+        initialMessage,
+        user,
+      );
+    } catch (err) {
+      await this.db.execute('DELETE FROM enquiries WHERE id = ?', [id]);
+      await this.db.execute(
+        'UPDATE properties SET enquiry_count = GREATEST(enquiry_count - 1, 0) WHERE id = ?',
+        [dto.propertyId],
+      );
+      throw err;
+    }
+
     await this.notify.send(property.listed_by_user_id, 'APPLICATION_SUBMITTED', {
       title: 'New enquiry',
       body: `${user.fullName} enquired about ${property.title}.`,
@@ -70,7 +107,11 @@ export class RentalService {
       severity: 'ACTION',
     });
     await this.audit.record({ actor: user, action: 'enquiry.created', objectType: 'enquiry', objectId: id, req });
-    return { id, status: 'NEW' };
+    return {
+      id,
+      status: 'NEW',
+      ...(conv?.id ? { conversationId: conv.id } : {}),
+    };
   }
 
   async listLeads(user: AuthUser, status?: string, page?: number, perPage?: number) {

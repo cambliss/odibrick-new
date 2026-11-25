@@ -54,6 +54,8 @@ const CONTEXT_TABS = [
 export function MessagesClient() {
   const searchParams = useSearchParams();
   const initialConvId = searchParams.get('conversationId');
+  const rawInitialTab = (searchParams.get('contextType') ?? '').toUpperCase();
+  const initialTab = CONTEXT_TABS.some((t) => t.value === rawInitialTab) ? rawInitialTab : '';
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
@@ -63,7 +65,7 @@ export function MessagesClient() {
 
   const [loadingList, setLoadingList] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const [activeTab, setActiveTab] = useState('');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [messageText, setMessageText] = useState('');

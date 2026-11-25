@@ -4,6 +4,8 @@ import { RentalService } from './rental.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { CommunicationsService } from '../communications/communications.service';
+import { ConversationContextType } from '../communications/communications.dto';
 import { AuthUser } from '../../common/auth/auth.types';
 
 const tenant: AuthUser = {
@@ -26,6 +28,7 @@ describe('RentalService', () => {
   let db: jest.Mocked<Partial<DatabaseService>>;
   let audit: jest.Mocked<Partial<AuditService>>;
   let notify: jest.Mocked<Partial<NotificationsService>>;
+  let comms: jest.Mocked<Partial<CommunicationsService>>;
 
   beforeEach(async () => {
     db = {
@@ -44,6 +47,9 @@ describe('RentalService', () => {
       send: jest.fn().mockResolvedValue(undefined),
       sendMany: jest.fn().mockResolvedValue(undefined),
     };
+    comms = {
+      getOrCreateConversation: jest.fn().mockResolvedValue({ id: 501, context_type: 'ENQUIRY', context_id: 77 }),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -51,6 +57,7 @@ describe('RentalService', () => {
         { provide: DatabaseService, useValue: db },
         { provide: AuditService, useValue: audit },
         { provide: NotificationsService, useValue: notify },
+        { provide: CommunicationsService, useValue: comms },
       ],
     }).compile();
 
@@ -78,17 +85,27 @@ describe('RentalService', () => {
       );
     });
 
-    it('returns ALREADY_SENT when an enquiry was already made in the past 24 hours', async () => {
+    it('returns ALREADY_SENT when an enquiry was already made in the past 24 hours without duplicating messages', async () => {
       (db.one as jest.Mock)
         .mockResolvedValueOnce({ id: 101, listed_by_user_id: 999, title: 'Villa' }) // activeProperty
         .mockResolvedValueOnce({ id: 50 }); // recent enquiry check
+      (comms.getOrCreateConversation as jest.Mock).mockResolvedValueOnce({ id: 500 });
 
       const res = await service.createEnquiry(tenant, { propertyId: 101, message: 'Interested' });
       expect(res.status).toBe('ALREADY_SENT');
+      expect(res.id).toBe(50);
+      expect(res.conversationId).toBe(500);
       expect(db.insert).not.toHaveBeenCalled();
+      expect(comms.getOrCreateConversation).toHaveBeenCalledWith(
+        ConversationContextType.ENQUIRY,
+        50,
+        undefined,
+        undefined,
+        tenant,
+      );
     });
 
-    it('successfully creates an enquiry, increments count, and notifies the listing owner', async () => {
+    it('successfully creates an enquiry, starts its ENQUIRY conversation, notifies the lister, and does not create an application', async () => {
       (db.one as jest.Mock)
         .mockResolvedValueOnce({ id: 101, listed_by_user_id: 10, title: 'Villa Green' })
         .mockResolvedValueOnce(null); // no recent enquiry
@@ -97,12 +114,63 @@ describe('RentalService', () => {
       const res = await service.createEnquiry(tenant, { propertyId: 101, message: 'When can I visit?' });
       expect(res.status).toBe('NEW');
       expect(res.id).toBe(77);
+      expect(res.conversationId).toBe(501);
+      expect(db.insert).toHaveBeenCalledTimes(1);
+      expect(db.insert).toHaveBeenCalledWith('enquiries', expect.objectContaining({
+        property_id: 101,
+        tenant_user_id: tenant.id,
+        message: 'When can I visit?',
+      }));
+      expect(db.insert).not.toHaveBeenCalledWith('applications', expect.anything());
+      expect(comms.getOrCreateConversation).toHaveBeenCalledWith(
+        ConversationContextType.ENQUIRY,
+        77,
+        undefined,
+        'When can I visit?',
+        tenant,
+      );
       expect(db.execute).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE properties SET enquiry_count'),
         [101],
       );
-      expect(notify.send).toHaveBeenCalledWith(10, 'APPLICATION_SUBMITTED', expect.any(Object));
+      expect(notify.send).toHaveBeenCalledWith(10, 'APPLICATION_SUBMITTED', expect.objectContaining({
+        actionUrl: '/dashboard/leads',
+      }));
       expect(audit.record).toHaveBeenCalled();
+    });
+
+    it('omits conversationId when getOrCreateConversation does not return a valid id', async () => {
+      (db.one as jest.Mock)
+        .mockResolvedValueOnce({ id: 101, listed_by_user_id: 10, title: 'Villa Green' })
+        .mockResolvedValueOnce(null);
+      (db.insert as jest.Mock).mockResolvedValueOnce(78);
+      (comms.getOrCreateConversation as jest.Mock).mockResolvedValueOnce(null);
+
+      const res = await service.createEnquiry(tenant, { propertyId: 101, message: 'Hello' });
+      expect(res.status).toBe('NEW');
+      expect(res.id).toBe(78);
+      expect('conversationId' in res).toBe(false);
+    });
+
+    it('rolls back the saved enquiry and enquiry_count if conversation creation fails', async () => {
+      (db.one as jest.Mock)
+        .mockResolvedValueOnce({ id: 101, listed_by_user_id: 10, title: 'Villa Green' })
+        .mockResolvedValueOnce(null);
+      (db.insert as jest.Mock).mockResolvedValueOnce(79);
+      (comms.getOrCreateConversation as jest.Mock).mockRejectedValueOnce(
+        new Error('Conversation insert failed'),
+      );
+
+      await expect(
+        service.createEnquiry(tenant, { propertyId: 101, message: 'Is it available?' }),
+      ).rejects.toThrow('Conversation insert failed');
+
+      expect(db.execute).toHaveBeenCalledWith('DELETE FROM enquiries WHERE id = ?', [79]);
+      expect(db.execute).toHaveBeenCalledWith(
+        'UPDATE properties SET enquiry_count = GREATEST(enquiry_count - 1, 0) WHERE id = ?',
+        [101],
+      );
+      expect(notify.send).not.toHaveBeenCalled();
     });
   });
 

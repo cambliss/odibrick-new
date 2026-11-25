@@ -71,6 +71,7 @@ export class CommunicationsService {
       case ConversationContextType.ENQUIRY: {
         const row = await this.db.one<any>(
           `SELECT e.*, p.id AS prop_id, p.title AS prop_title, p.city,
+                  p.listed_by_user_id,
                   COALESCE(o.user_id, p.listed_by_user_id) AS owner_user_id,
                   ag.user_id AS assigned_agent_id
              FROM enquiries e
@@ -83,11 +84,18 @@ export class CommunicationsService {
         if (!row) throw new NotFoundException(`Enquiry #${contextId} not found.`);
         title = `Enquiry: ${row.prop_title} (${row.city})`;
         propertyId = row.prop_id;
+        const seenPartyIds = new Set<number>();
+        const addUniqueParty = (userId: number | null | undefined, role: ParticipantRole) => {
+          if (userId && !seenPartyIds.has(userId)) {
+            seenPartyIds.add(userId);
+            parties.push({ userId, role });
+          }
+        };
         const customerId = row.tenant_user_id || row.user_id;
-        if (customerId) parties.push({ userId: customerId, role: ParticipantRole.CUSTOMER });
-        if (row.owner_user_id) parties.push({ userId: row.owner_user_id, role: ParticipantRole.OWNER });
-        if (row.assigned_user_id) parties.push({ userId: row.assigned_user_id, role: ParticipantRole.AGENT });
-        else if (row.assigned_agent_id) parties.push({ userId: row.assigned_agent_id, role: ParticipantRole.AGENT });
+        addUniqueParty(customerId, ParticipantRole.CUSTOMER);
+        addUniqueParty(row.owner_user_id, ParticipantRole.OWNER);
+        addUniqueParty(row.assigned_user_id || row.assigned_agent_id, ParticipantRole.AGENT);
+        addUniqueParty(row.listed_by_user_id, ParticipantRole.AGENT);
         break;
       }
 
@@ -324,7 +332,7 @@ export class CommunicationsService {
           }
         }
 
-        if (creatorUser) {
+        if (creatorUser && !meta.parties.some((p) => p.userId === creatorUser.id)) {
           await this.db.execute(
             `INSERT IGNORE INTO conversation_participants (conversation_id, user_id, role)
              VALUES (?, ?, ?)`,

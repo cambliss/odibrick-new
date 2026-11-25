@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CommunicationsService } from './communications.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -101,5 +101,97 @@ describe('CommunicationsService - D-21 contextType & Concurrency Safety', () => 
     expect(result).toBeDefined();
     expect(result.id).toBe(99);
     expect(result.public_id).toBe('ODB-CNV-2026-000099');
+  });
+
+  it('includes tenant, owner, and listing agent without duplicate participants when creating an ENQUIRY conversation', async () => {
+    (db.one as jest.Mock)
+      .mockResolvedValueOnce(null) // existing conversation lookup
+      .mockResolvedValueOnce({
+        id: 42,
+        user_id: 10, // tenant
+        prop_id: 300,
+        prop_title: '1 BHK Studio in Viman Nagar',
+        owner_user_id: 20, // property owner
+        assigned_user_id: 30, // assigned agent
+        assigned_agent_id: 30, // same agent
+        listed_by_user_id: 30, // listing agent (duplicate of assigned_user_id)
+      })
+      .mockResolvedValueOnce({
+        id: 701,
+        public_id: 'ODB-CNV-2026-000701',
+        context_type: 'ENQUIRY',
+        context_id: 42,
+      });
+
+    const result = await service.getOrCreateConversation(
+      ConversationContextType.ENQUIRY,
+      42,
+      undefined,
+      undefined,
+      testUser,
+    );
+
+    expect(result.id).toBe(701);
+    const participantCalls = (db.execute as jest.Mock).mock.calls.filter(([sql]) =>
+      typeof sql === 'string' && sql.includes('INSERT IGNORE INTO conversation_participants'),
+    );
+    const addedUserIds = participantCalls.map(([, params]) => params[1]);
+    expect(addedUserIds).toEqual([10, 20, 30]);
+    expect(new Set(addedUserIds).size).toBe(addedUserIds.length);
+  });
+
+  it('grants access to the listing agent and denies unrelated users for an ENQUIRY conversation', async () => {
+    const listingAgent: AuthUser = {
+      id: 30,
+      publicId: 'USR-30',
+      email: 'agent@test.com',
+      fullName: 'Compass Realty 3',
+      roles: ['AGENT'],
+      permissions: ['conversation.read', 'conversation.send'],
+    };
+    const unrelatedUser: AuthUser = {
+      id: 99,
+      publicId: 'USR-99',
+      email: 'stranger@test.com',
+      fullName: 'Unrelated User',
+      roles: ['TENANT'],
+      permissions: ['conversation.read'],
+    };
+
+    const enquiryRow = {
+      id: 42,
+      user_id: 10,
+      prop_id: 300,
+      prop_title: '1 BHK Studio in Viman Nagar',
+      owner_user_id: 20,
+      assigned_user_id: null,
+      assigned_agent_id: null,
+      listed_by_user_id: 30,
+    };
+    const convRow = {
+      id: 701,
+      context_type: ConversationContextType.ENQUIRY,
+      context_id: 42,
+      created_by: 10,
+    };
+
+    // Listing agent authorized via listed_by_user_id
+    (db.one as jest.Mock)
+      .mockResolvedValueOnce(convRow)
+      .mockResolvedValueOnce(null) // not yet in conversation_participants
+      .mockResolvedValueOnce(enquiryRow);
+
+    const allowed = await service.assertConversationAccess(listingAgent, 701);
+    expect(allowed.id).toBe(701);
+
+    // Unrelated user denied with ForbiddenException
+    (db.one as jest.Mock)
+      .mockResolvedValueOnce(convRow)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(enquiryRow);
+
+    await expect(service.assertConversationAccess(unrelatedUser, 701)).rejects.toThrow(
+      ForbiddenException,
+    );
   });
 });
