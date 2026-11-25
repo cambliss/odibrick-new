@@ -194,4 +194,125 @@ describe('CommunicationsService - D-21 contextType & Concurrency Safety', () => 
       ForbiddenException,
     );
   });
+
+  it('does not duplicate the initial message when an existing ENQUIRY conversation already has messages or loses a concurrent claim', async () => {
+    const existingConv = {
+      id: 59,
+      public_id: 'ODB-CNV-2026-000059',
+      context_type: ConversationContextType.ENQUIRY,
+      context_id: 171,
+      status: 'ACTIVE',
+    };
+    const sendSpy = jest.spyOn(service, 'sendMessage').mockResolvedValue({ id: 999 } as any);
+
+    (db.one as jest.Mock)
+      .mockResolvedValueOnce(existingConv) // existing conversation lookup
+      .mockResolvedValueOnce({
+        id: 171,
+        tenant_user_id: 10,
+        prop_id: 300,
+        prop_title: '1 BHK Studio in Viman Nagar',
+        city: 'Pune',
+        owner_user_id: 20,
+        listed_by_user_id: 30,
+      }); // resolveContextMetadata
+    (db.execute as jest.Mock).mockImplementation(async (sql: string) => {
+      if (sql.includes('UPDATE conversations')) {
+        return { affectedRows: 0 } as any;
+      }
+      return { affectedRows: 1 } as any;
+    });
+
+    const result = await service.getOrCreateConversation(
+      ConversationContextType.ENQUIRY,
+      171,
+      undefined,
+      'Original enquiry message',
+      testUser,
+    );
+
+    expect(result.id).toBe(59);
+    expect(sendSpy).not.toHaveBeenCalled();
+  });
+
+  it('seeds the initial message exactly once when an existing ENQUIRY conversation has zero messages', async () => {
+    const existingEmptyConv = {
+      id: 59,
+      public_id: 'ODB-CNV-2026-000059',
+      context_type: ConversationContextType.ENQUIRY,
+      context_id: 171,
+      status: 'OPEN',
+    };
+    const sendSpy = jest.spyOn(service, 'sendMessage').mockResolvedValue({ id: 802 } as any);
+
+    (db.one as jest.Mock)
+      .mockResolvedValueOnce(existingEmptyConv) // existing conversation lookup
+      .mockResolvedValueOnce({
+        id: 171,
+        tenant_user_id: 10,
+        prop_id: 300,
+        prop_title: '1 BHK Studio in Viman Nagar',
+        city: 'Pune',
+        owner_user_id: 20,
+        listed_by_user_id: 30,
+      }); // resolveContextMetadata
+    (db.execute as jest.Mock).mockResolvedValue({ affectedRows: 1 } as any);
+
+    const result = await service.getOrCreateConversation(
+      ConversationContextType.ENQUIRY,
+      171,
+      undefined,
+      'Original enquiry message',
+      testUser,
+    );
+
+    expect(result.id).toBe(59);
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(sendSpy).toHaveBeenCalledWith(testUser, 59, { body: 'Original enquiry message' });
+  });
+
+  it('does not misattribute the initial ENQUIRY message when a non-tenant party opens an empty conversation', async () => {
+    const listingAgent: AuthUser = {
+      id: 30,
+      publicId: 'USR-30',
+      email: 'agent@test.com',
+      fullName: 'Compass Realty 3',
+      roles: ['AGENT'],
+      permissions: ['conversation.read', 'conversation.send'],
+    };
+    const existingEmptyConv = {
+      id: 59,
+      public_id: 'ODB-CNV-2026-000059',
+      context_type: ConversationContextType.ENQUIRY,
+      context_id: 171,
+      status: 'OPEN',
+    };
+    const sendSpy = jest.spyOn(service, 'sendMessage').mockResolvedValue({ id: 803 } as any);
+
+    (db.one as jest.Mock)
+      .mockResolvedValueOnce(existingEmptyConv)
+      .mockResolvedValueOnce({
+        id: 171,
+        tenant_user_id: 10,
+        prop_id: 300,
+        prop_title: '1 BHK Studio in Viman Nagar',
+        city: 'Pune',
+        owner_user_id: 20,
+        listed_by_user_id: 30,
+      });
+
+    await service.getOrCreateConversation(
+      ConversationContextType.ENQUIRY,
+      171,
+      undefined,
+      'Original enquiry message',
+      listingAgent,
+    );
+
+    expect(sendSpy).not.toHaveBeenCalled();
+    const updateCalls = (db.execute as jest.Mock).mock.calls.filter(([sql]) =>
+      typeof sql === 'string' && sql.includes('UPDATE conversations'),
+    );
+    expect(updateCalls).toHaveLength(0);
+  });
 });

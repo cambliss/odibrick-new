@@ -376,6 +376,42 @@ export class CommunicationsService {
           );
         }
       }
+
+      if (initialMessage && creatorUser) {
+        const customerParty = meta.parties.find((p) => p.role === ParticipantRole.CUSTOMER);
+        const isAuthorizedInitialSender =
+          !customerParty || customerParty.userId === creatorUser.id;
+        if (isAuthorizedInitialSender) {
+          const claim: any = await this.db.execute(
+            `UPDATE conversations
+                SET last_message_at = NOW(), updated_at = NOW()
+              WHERE id = ?
+                AND last_message_at IS NULL
+                AND NOT EXISTS (
+                  SELECT 1 FROM messages WHERE conversation_id = ? AND deleted_at IS NULL
+                )`,
+            [conv.id, conv.id],
+          );
+          const claimed =
+            Number(claim?.affectedRows ?? (Array.isArray(claim) ? claim[0]?.affectedRows : 0)) > 0;
+          if (claimed) {
+            try {
+              await this.sendMessage(creatorUser, conv.id, { body: initialMessage });
+            } catch (err) {
+              await this.db.execute(
+                `UPDATE conversations
+                    SET last_message_at = NULL
+                  WHERE id = ?
+                    AND NOT EXISTS (
+                      SELECT 1 FROM messages WHERE conversation_id = ? AND deleted_at IS NULL
+                    )`,
+                [conv.id, conv.id],
+              );
+              throw err;
+            }
+          }
+        }
+      }
     }
 
     return conv;

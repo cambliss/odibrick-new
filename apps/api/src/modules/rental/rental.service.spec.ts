@@ -85,22 +85,42 @@ describe('RentalService', () => {
       );
     });
 
-    it('returns ALREADY_SENT when an enquiry was already made in the past 24 hours without duplicating messages', async () => {
+    it('returns ALREADY_SENT when an enquiry was already made in the past 24 hours, passing the original enquiry message without duplicating leads or notifications', async () => {
       (db.one as jest.Mock)
         .mockResolvedValueOnce({ id: 101, listed_by_user_id: 999, title: 'Villa' }) // activeProperty
-        .mockResolvedValueOnce({ id: 50 }); // recent enquiry check
+        .mockResolvedValueOnce({ id: 50, message: 'Original tenant question' }); // recent enquiry check
       (comms.getOrCreateConversation as jest.Mock).mockResolvedValueOnce({ id: 500 });
 
-      const res = await service.createEnquiry(tenant, { propertyId: 101, message: 'Interested' });
+      const res = await service.createEnquiry(tenant, { propertyId: 101, message: 'Retry message' });
       expect(res.status).toBe('ALREADY_SENT');
       expect(res.id).toBe(50);
       expect(res.conversationId).toBe(500);
       expect(db.insert).not.toHaveBeenCalled();
+      expect(notify.send).not.toHaveBeenCalled();
       expect(comms.getOrCreateConversation).toHaveBeenCalledWith(
         ConversationContextType.ENQUIRY,
         50,
         undefined,
+        'Original tenant question',
+        tenant,
+      );
+    });
+
+    it('falls back to dto.message when a deduplicated enquiry has no stored message', async () => {
+      (db.one as jest.Mock)
+        .mockResolvedValueOnce({ id: 101, listed_by_user_id: 999, title: 'Villa' })
+        .mockResolvedValueOnce({ id: 51, message: null });
+      (comms.getOrCreateConversation as jest.Mock).mockResolvedValueOnce({ id: 501 });
+
+      const res = await service.createEnquiry(tenant, { propertyId: 101, message: 'Follow-up question' });
+      expect(res.status).toBe('ALREADY_SENT');
+      expect(res.conversationId).toBe(501);
+      expect(notify.send).not.toHaveBeenCalled();
+      expect(comms.getOrCreateConversation).toHaveBeenCalledWith(
+        ConversationContextType.ENQUIRY,
+        51,
         undefined,
+        'Follow-up question',
         tenant,
       );
     });

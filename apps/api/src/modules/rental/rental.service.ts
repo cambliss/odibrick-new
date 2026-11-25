@@ -51,16 +51,18 @@ export class RentalService {
     }
 
     const recent = await this.db.one<any>(
-      `SELECT id FROM enquiries WHERE property_id = ? AND tenant_user_id = ?
+      `SELECT id, message FROM enquiries WHERE property_id = ? AND tenant_user_id = ?
          AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR) LIMIT 1`,
       [dto.propertyId, user.id],
     );
     if (recent) {
+      const initialMessage =
+        recent.message?.trim() || dto.message?.trim() || `Enquired about ${property.title}.`;
       const existingConv = await this.comms.getOrCreateConversation(
         ConversationContextType.ENQUIRY,
         recent.id,
         undefined,
-        undefined,
+        initialMessage,
         user,
       );
       return {
