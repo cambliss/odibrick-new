@@ -61,10 +61,15 @@ export class PropertiesService {
       params.push(dto.q);
     }
     if (dto.amenities?.length) {
-      where.push(`(SELECT COUNT(*) FROM property_amenities pa
-                    JOIN amenities a ON a.id = pa.amenity_id
-                   WHERE pa.property_id = p.id AND a.code IN (${dto.amenities.map(() => '?').join(',')})) = ?`);
-      params.push(...dto.amenities, dto.amenities.length);
+      const uniqueAmenities = Array.from(
+        new Set(dto.amenities.map((code) => code.trim().toUpperCase()).filter(Boolean)),
+      );
+      if (uniqueAmenities.length) {
+        where.push(`(SELECT COUNT(DISTINCT a.code) FROM property_amenities pa
+                      JOIN amenities a ON a.id = pa.amenity_id
+                     WHERE pa.property_id = p.id AND a.code IN (${uniqueAmenities.map(() => '?').join(',')})) = ?`);
+        params.push(...uniqueAmenities, uniqueAmenities.length);
+      }
     }
     // bounding box for map view
     if (dto.swLat && dto.neLat && dto.swLng && dto.neLng) {

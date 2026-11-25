@@ -1,6 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { PropertiesService } from './properties.service';
+import { PropertySearchDto } from './properties.dto';
 import { DatabaseService } from '../../common/database/database.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AuthUser } from '../../common/auth/auth.types';
@@ -155,6 +158,72 @@ describe('PropertiesService', () => {
         service.attachImage(owner, 1, 'properties/P1/failed-upload.jpg'),
       ).rejects.toThrow(BadRequestException);
       expect(db.insert).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('search - amenities filtering and zero-match handling', () => {
+    it('accepts single, comma-separated, and multi-select amenities query params in PropertySearchDto', async () => {
+      const single = plainToInstance(PropertySearchDto, { amenities: 'LIFT' });
+      expect(await validate(single)).toHaveLength(0);
+      expect(single.amenities).toEqual(['LIFT']);
+
+      const comma = plainToInstance(PropertySearchDto, { amenities: 'lift, gym ' });
+      expect(await validate(comma)).toHaveLength(0);
+      expect(comma.amenities).toEqual(['LIFT', 'GYM']);
+
+      const multi = plainToInstance(PropertySearchDto, { amenities: ['LIFT', 'GYM', 'LIFT'] });
+      expect(await validate(multi)).toHaveLength(0);
+      expect(multi.amenities).toEqual(['LIFT', 'GYM']);
+    });
+
+    it('filters by amenities combined with rent, bedrooms, propertyType, and furnishing', async () => {
+      (db.query as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 12,
+          public_id: 'PROP-12',
+          slug: 'india/bengaluru/koramangala/2bhk-apartment-12',
+          title: '2 BHK with Lift & Gym',
+          listing_type: 'RENT',
+          property_type: 'APARTMENT',
+          bedrooms: 2,
+          bathrooms: 2,
+          furnishing: 'SEMI_FURNISHED',
+          rent_amount: 35000,
+          locality: 'Koramangala',
+          city: 'Bengaluru',
+          state: 'Karnataka',
+          verified_checks: null,
+        },
+      ]);
+      (db.one as jest.Mock).mockResolvedValueOnce({ total: 1 });
+
+      const dto = plainToInstance(PropertySearchDto, {
+        amenities: ['LIFT', 'GYM'],
+        minRent: '20000',
+        maxRent: '45000',
+        minBedrooms: '2',
+        propertyType: 'APARTMENT',
+        furnishing: 'SEMI_FURNISHED',
+      });
+      const res = await service.search(dto);
+
+      expect(res.data).toHaveLength(1);
+      expect(res.meta.total).toBe(1);
+      const [sql, params] = (db.query as jest.Mock).mock.calls[0];
+      expect(sql).toContain('COUNT(DISTINCT a.code)');
+      expect(params).toEqual(expect.arrayContaining(['APARTMENT', 'SEMI_FURNISHED', 2, 20000, 45000, 'LIFT', 'GYM', 2]));
+    });
+
+    it('returns an empty paginated result cleanly when no listings match the amenities filter', async () => {
+      (db.query as jest.Mock).mockResolvedValueOnce([]);
+      (db.one as jest.Mock).mockResolvedValueOnce({ total: 0 });
+
+      const dto = plainToInstance(PropertySearchDto, { amenities: 'LIFT' });
+      const res = await service.search(dto);
+
+      expect(res.data).toEqual([]);
+      expect(res.meta.total).toBe(0);
+      expect(res.meta.totalPages).toBe(1);
     });
   });
 });

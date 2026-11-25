@@ -1,8 +1,22 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional,
   IsString, Max, MaxLength, Min, MinLength,
 } from 'class-validator';
+
+export function normalizeAmenitiesQuery(value: unknown): string[] | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const rawList = Array.isArray(value) ? value : [value];
+  const normalized = Array.from(
+    new Set(
+      rawList
+        .flatMap((entry) => String(entry).split(','))
+        .map((code) => code.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+  return normalized.length ? normalized : undefined;
+}
 
 export const PROPERTY_TYPES = ['APARTMENT','INDEPENDENT_HOUSE','VILLA','STUDIO','PENTHOUSE','PLOT','OFFICE','SHOP','WAREHOUSE','PG'] as const;
 export const FURNISHINGS = ['UNFURNISHED','SEMI_FURNISHED','FULLY_FURNISHED'] as const;
@@ -50,7 +64,11 @@ export class CreatePropertyDto {
   @IsOptional() @IsString() @MaxLength(4000) description?: string;
   @IsOptional() @IsString() @MaxLength(2000) houseRules?: string;
   @IsOptional() @IsArray() amenityCodes?: string[];
-  @IsOptional() @IsArray() amenities?: string[];
+  @IsOptional()
+  @Transform(({ value }) => normalizeAmenitiesQuery(value))
+  @IsArray()
+  @IsString({ each: true })
+  amenities?: string[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(10) wizardStep?: number;
   @IsOptional() @Type(() => Number) @IsInt() projectId?: number;
 }
@@ -87,7 +105,11 @@ export class PropertySearchDto {
   @IsOptional() @Type(() => Boolean) @IsBoolean() petsAllowed?: boolean;
   @IsOptional() @Type(() => Boolean) @IsBoolean() parking?: boolean;
   @IsOptional() @Type(() => Boolean) @IsBoolean() availableNow?: boolean;
-  @IsOptional() @IsArray() amenities?: string[];
+  @IsOptional()
+  @Transform(({ value }) => normalizeAmenitiesQuery(value))
+  @IsArray()
+  @IsString({ each: true })
+  amenities?: string[];
   @IsOptional() @Type(() => Number) @IsNumber() swLat?: number;
   @IsOptional() @Type(() => Number) @IsNumber() swLng?: number;
   @IsOptional() @Type(() => Number) @IsNumber() neLat?: number;

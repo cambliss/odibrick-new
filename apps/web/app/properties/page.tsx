@@ -4,6 +4,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { PropertyCard, type PropertyCardData } from '@/components/property-card';
 import { EmptyState, Button } from '@/components/ui';
 import { SearchFilters } from './search-filters';
+import { RetrySearchButton } from './retry-search-button';
 import { serverApi } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -81,7 +82,7 @@ export default async function SearchPage({
               <EmptyState
                 title="We could not load listings"
                 body="The search service did not respond. Refresh the page, and if it keeps happening our support team can look into it."
-                action={<Button href="/properties">Try again</Button>}
+                action={<RetrySearchButton />}
               />
             ) : results.data.length ? (
               <>

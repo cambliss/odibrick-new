@@ -38,20 +38,35 @@ export function SearchFilters() {
     [params, router],
   );
 
+  const getMulti = useCallback(
+    (key: string) =>
+      Array.from(
+        new Set(
+          params
+            .getAll(key)
+            .flatMap((entry) => entry.split(','))
+            .map((v) => v.trim())
+            .filter(Boolean),
+        ),
+      ),
+    [params],
+  );
+
   const toggleMulti = useCallback(
     (key: string, value: string) => {
       const next = new URLSearchParams(params.toString());
-      const current = next.getAll(key);
+      const current = getMulti(key);
       next.delete(key);
       const updated = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
       updated.forEach((v) => next.append(key, v));
       next.delete('page');
-      router.push(`/properties?${next.toString()}`);
+      const qs = next.toString();
+      router.push(qs ? `/properties?${qs}` : '/properties');
     },
-    [params, router],
+    [getMulti, params, router],
   );
 
-  const has = (key: string, value: string) => params.getAll(key).includes(value);
+  const has = (key: string, value: string) => getMulti(key).includes(value);
 
   return (
     <aside className="lg:sticky lg:top-6 lg:self-start">
