@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { serverApiOrNull } from '@/lib/api';
 import { VisitsClient } from './visits-client';
 
 export const metadata: Metadata = {
@@ -6,6 +7,13 @@ export const metadata: Metadata = {
   description: 'Schedule, confirm, reschedule, and manage property visits and walkthroughs for customers and providers.',
 };
 
-export default function VisitsPage() {
-  return <VisitsClient />;
+type Me = {
+  id: number;
+  roles: string[];
+};
+
+export default async function VisitsPage() {
+  const me = await serverApiOrNull<Me>('/auth/me');
+  const roles = me?.roles ?? [];
+  return <VisitsClient userRoles={roles} />;
 }

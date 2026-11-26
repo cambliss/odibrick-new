@@ -13,13 +13,16 @@ type Props = {
   listingActive: boolean;
 };
 
-export function PropertyActions({ propertyId, slug, signedIn, listingActive }: Props) {
+export function PropertyActions({ propertyId, slug, signedIn, isOwnListing, listingActive }: Props) {
   const router = useRouter();
-  const [mode, setMode] = useState<'idle' | 'enquiry' | 'apply'>('idle');
+  const [mode, setMode] = useState<'idle' | 'enquiry' | 'apply' | 'visit'>('idle');
   const [message, setMessage] = useState('');
   const [moveIn, setMoveIn] = useState('');
   const [occupants, setOccupants] = useState('2');
   const [tenure, setTenure] = useState('11');
+  const [visitDateTime, setVisitDateTime] = useState('');
+  const [visitType, setVisitType] = useState<'IN_PERSON' | 'VIDEO_TOUR'>('IN_PERSON');
+  const [visitNotes, setVisitNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -102,15 +105,131 @@ export function PropertyActions({ propertyId, slug, signedIn, listingActive }: P
     }
   };
 
+  const submitVisit = async () => {
+    if (busy) return;
+    setError(null);
+    if (!visitDateTime) {
+      setError('Please select a preferred future date and time for your visit.');
+      return;
+    }
+    const parsed = new Date(visitDateTime);
+    if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) {
+      setError('Scheduled visit must be set in the future.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await api('/customer/visits', {
+        method: 'POST',
+        body: JSON.stringify({
+          propertyId,
+          scheduledStart: parsed.toISOString(),
+          visitType,
+          customerNotes: visitNotes.trim() || undefined,
+        }),
+      });
+      setDoneHref('/dashboard/visits');
+      setDone('Visit request submitted. The listing host has been notified.');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not schedule the visit. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (mode === 'idle') {
     return (
       <div className="space-y-2">
         <Button onClick={() => setMode('apply')} full>
           Start rental process
         </Button>
+        {!isOwnListing ? (
+          <Button
+            onClick={() => {
+              setError(null);
+              setMode('visit');
+            }}
+            variant="secondary"
+            full
+          >
+            Schedule a visit
+          </Button>
+        ) : null}
         <Button onClick={() => setMode('enquiry')} variant="secondary" full>
           Ask a question first
         </Button>
+      </div>
+    );
+  }
+
+  if (mode === 'visit') {
+    const localMin = new Date(Date.now() + 5 * 60 * 1000);
+    const minDateTime = new Date(localMin.getTime() - localMin.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+    return (
+      <div className="space-y-3">
+        <div>
+          <label className="label" htmlFor="visitDateTime">
+            Preferred date &amp; time (IST)
+          </label>
+          <input
+            id="visitDateTime"
+            type="datetime-local"
+            min={minDateTime}
+            value={visitDateTime}
+            onChange={(event) => setVisitDateTime(event.target.value)}
+            className="field"
+            required
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="visitType">
+            Visit type
+          </label>
+          <select
+            id="visitType"
+            value={visitType}
+            onChange={(event) => setVisitType(event.target.value as 'IN_PERSON' | 'VIDEO_TOUR')}
+            className="field"
+          >
+            <option value="IN_PERSON">In-person walkthrough</option>
+            <option value="VIDEO_TOUR">Video tour</option>
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="visitNotes">
+            Notes for the host (optional)
+          </label>
+          <textarea
+            id="visitNotes"
+            rows={3}
+            value={visitNotes}
+            onChange={(event) => setVisitNotes(event.target.value)}
+            className="field"
+            placeholder="Preferred entry gate, timing flexibility, or specific questions."
+          />
+        </div>
+
+        {error ? <ErrorNote>{error}</ErrorNote> : null}
+
+        <div className="flex gap-2">
+          <Button onClick={submitVisit} disabled={busy} full>
+            {busy ? 'Requesting…' : 'Request visit'}
+          </Button>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => {
+              setError(null);
+              setMode('idle');
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
       </div>
     );
   }

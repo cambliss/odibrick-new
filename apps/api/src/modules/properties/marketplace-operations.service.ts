@@ -2689,21 +2689,78 @@ export class MarketplaceOperationsService {
       }
     }
 
-    await this.checkSchedulingConflicts(property.id, property.listed_by_user_id, user.id, start, end);
-
     const publicId = newPublicId();
-    const visitId = await this.db.insert('property_visits', {
-      public_id: publicId,
-      enquiry_id: enquiryId,
-      property_id: property.id,
-      customer_user_id: user.id,
-      host_user_id: property.listed_by_user_id,
-      scheduled_start: start,
-      scheduled_end: end,
-      timezone: 'Asia/Kolkata',
-      status: 'REQUESTED',
-      visit_type: dto.visitType || 'IN_PERSON',
-      customer_notes: dto.customerNotes || null,
+    const visitId = await this.db.transaction(async (conn) => {
+      // Serialize concurrent visit bookings for the same property
+      await conn.execute('SELECT id FROM properties WHERE id = ? FOR UPDATE', [property.id]);
+
+      const [activeRows]: any = await conn.execute(
+        `SELECT id FROM property_visits
+          WHERE property_id = ?
+            AND customer_user_id = ?
+            AND status IN ('REQUESTED', 'PROPOSED', 'CONFIRMED')
+            AND scheduled_end > NOW()
+          ORDER BY id DESC
+          LIMIT 1`,
+        [property.id, user.id],
+      );
+      if (Array.isArray(activeRows) && activeRows.length > 0) {
+        throw new ConflictException(
+          'You already have an active visit request or scheduled visit for this property. Please reschedule or cancel it from your Visits dashboard.',
+        );
+      }
+
+      const [propConflicts]: any = await conn.execute(
+        `SELECT id FROM property_visits
+          WHERE property_id = ? AND status IN ('CONFIRMED', 'PROPOSED')
+            AND (scheduled_start < ? AND scheduled_end > ?)
+          LIMIT 1`,
+        [property.id, end, start],
+      );
+      if (Array.isArray(propConflicts) && propConflicts.length > 0) {
+        throw new ConflictException('Property already has a scheduled visit during this time slot.');
+      }
+
+      const [hostConflicts]: any = await conn.execute(
+        `SELECT id FROM property_visits
+          WHERE host_user_id = ? AND status IN ('CONFIRMED', 'PROPOSED')
+            AND (scheduled_start < ? AND scheduled_end > ?)
+          LIMIT 1`,
+        [property.listed_by_user_id, end, start],
+      );
+      if (Array.isArray(hostConflicts) && hostConflicts.length > 0) {
+        throw new ConflictException('Host has a scheduling conflict with another visit during this time slot.');
+      }
+
+      const [custConflicts]: any = await conn.execute(
+        `SELECT id FROM property_visits
+          WHERE customer_user_id = ? AND status = 'CONFIRMED'
+            AND (scheduled_start < ? AND scheduled_end > ?)
+          LIMIT 1`,
+        [user.id, end, start],
+      );
+      if (Array.isArray(custConflicts) && custConflicts.length > 0) {
+        throw new ConflictException('You already have another confirmed property visit during this time window.');
+      }
+
+      const [insertRes]: any = await conn.execute(
+        `INSERT INTO property_visits
+          (public_id, enquiry_id, property_id, customer_user_id, host_user_id,
+           scheduled_start, scheduled_end, timezone, status, visit_type, customer_notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'Asia/Kolkata', 'REQUESTED', ?, ?)`,
+        [
+          publicId,
+          enquiryId ?? null,
+          property.id,
+          user.id,
+          property.listed_by_user_id,
+          start,
+          end,
+          dto.visitType || 'IN_PERSON',
+          dto.customerNotes || null,
+        ],
+      );
+      return Number(insertRes.insertId);
     });
 
     if (enquiryId) {
@@ -2760,8 +2817,8 @@ export class MarketplaceOperationsService {
 
     const rows = await this.db.query<any>(
       `SELECT v.id, v.public_id, v.scheduled_start, v.scheduled_end, v.timezone, v.status,
-              v.visit_type, v.customer_notes, v.cancellation_reason, v.reschedule_reason,
-              v.confirmed_at, v.completed_at, v.outcome, v.created_at,
+              v.visit_type, v.customer_notes, v.provider_notes, v.cancellation_reason, v.reschedule_reason,
+              v.confirmed_at, v.completed_at, v.outcome, v.outcome_notes, v.created_at,
               p.id AS property_id, p.title AS property_title, p.city, p.locality, p.rent_amount,
               p.visibility_tier, p.is_featured,
               host.id AS host_id, host.full_name AS host_name, host.email AS host_email, host.phone AS host_phone,
@@ -2792,11 +2849,13 @@ export class MarketplaceOperationsService {
       scheduledEnd: r.scheduled_end,
       timezone: r.timezone,
       customerNotes: r.customer_notes,
+      providerNotes: r.provider_notes,
       cancellationReason: r.cancellation_reason,
       rescheduleReason: r.reschedule_reason,
       confirmedAt: r.confirmed_at,
       completedAt: r.completed_at,
       outcome: r.outcome,
+      outcomeNotes: r.outcome_notes,
       property: {
         id: r.property_id,
         title: r.property_title,
@@ -2995,7 +3054,7 @@ export class MarketplaceOperationsService {
     await this.db.update('property_visits', visitId, {
       scheduled_start: start,
       scheduled_end: end,
-      status: 'PROPOSED',
+      status: 'REQUESTED',
       reschedule_reason: dto.reason.trim(),
       customer_notes: dto.notes ? `${visit.customer_notes || ''}\nReschedule Note: ${dto.notes}`.trim() : visit.customer_notes,
     });
@@ -3025,7 +3084,7 @@ export class MarketplaceOperationsService {
       actionUrl: `/dashboard/visits`,
     });
 
-    return { id: visitId, status: 'PROPOSED', scheduledStart: start, scheduledEnd: end };
+    return { id: visitId, status: 'REQUESTED', scheduledStart: start, scheduledEnd: end };
   }
 
   // --- Provider Visit Operations ---
