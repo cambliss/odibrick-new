@@ -658,4 +658,29 @@ describe('AuthService & Phase 1 Contact OTP Verification', () => {
       expect(db.execute).toHaveBeenCalledWith(expect.stringContaining('family_id = ?'), ['fam']);
     });
   });
+
+  // ------------------------------------------------------------------ Google OAuth
+  describe('Google OAuth Integration', () => {
+    it('reports disabled when GOOGLE_CLIENT_ID is not configured', () => {
+      configValues['auth.googleClientId'] = '';
+      expect(service.getGoogleConfig().enabled).toBe(false);
+    });
+
+    it('throws BadRequestException on getGoogleAuthUrl when clientId is missing', () => {
+      configValues['auth.googleClientId'] = '';
+      expect(() => service.getGoogleAuthUrl('TENANT')).toThrow(BadRequestException);
+    });
+
+    it('generates a valid Google OAuth authorization URL when configured', () => {
+      configValues['auth.googleClientId'] = 'test-client-id.apps.googleusercontent.com';
+      configValues['auth.googleCallbackUrl'] = 'http://localhost:3000/api/auth/google/callback';
+
+      const url = service.getGoogleAuthUrl('OWNER', '/properties/new');
+      expect(url).toContain('https://accounts.google.com/o/oauth2/v2/auth');
+      expect(url).toContain('client_id=test-client-id.apps.googleusercontent.com');
+      expect(url).toContain('redirect_uri=' + encodeURIComponent('http://localhost:3000/api/auth/google/callback'));
+      expect(url).toContain('scope=openid+email+profile');
+      expect(url).toContain('state=');
+    });
+  });
 });

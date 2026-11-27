@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, ErrorNote } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
+import { GoogleAuthButton } from '@/components/auth/google-auth-button';
 
 const ROLES = [
   ['TENANT', 'Rent a home'],
@@ -12,7 +13,15 @@ const ROLES = [
   ['BUILDER', 'I am a builder'],
 ];
 
-export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?: string }) {
+export function RegisterForm({
+  defaultRole,
+  next,
+  initialError,
+}: {
+  defaultRole: string;
+  next?: string;
+  initialError?: string;
+}) {
   const router = useRouter();
   const [role, setRole] = useState(ROLES.some(([r]) => r === defaultRole) ? defaultRole : 'TENANT');
   const [fullName, setFullName] = useState('');
@@ -21,7 +30,7 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
   const [password, setPassword] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   const strength = password.length >= 12 ? 'strong' : password.length >= 8 ? 'fair' : 'weak';
 
@@ -81,17 +90,18 @@ export function RegisterForm({ defaultRole, next }: { defaultRole: string; next?
               type="button"
               onClick={() => setRole(value)}
               aria-pressed={role === value}
-              className={`rounded-card border px-3 py-2.5 text-left text-[14px] transition-colors ${
-                role === value
-                  ? 'border-seal bg-seal-soft font-medium text-seal-deep'
-                  : 'border-line bg-white hover:border-seal'
-              }`}
+              className={`rounded-card border px-3 py-2.5 text-left text-[14px] transition-colors ${role === value
+                ? 'border-seal bg-seal-soft font-medium text-seal-deep'
+                : 'border-line bg-white hover:border-seal'
+                }`}
             >
               {label}
             </button>
           ))}
         </div>
       </fieldset>
+
+      <GoogleAuthButton mode="register" role={role} next={next} onError={setError} />
 
       <div>
         <label className="label" htmlFor="fullName">

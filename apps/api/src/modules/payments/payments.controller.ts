@@ -2,7 +2,7 @@ import { Body, Controller, Get, Headers, Param, ParseIntPipe, Post, Query, Req }
 import { Request } from 'express';
 import { PaymentsService } from './payments.service';
 import { PaymentReminderService } from './payment-reminder.service';
-import { RecordPaymentDto, RefundDto } from './payments.dto';
+import { RecordPaymentDto, RefundDto, VerifyRazorpayPaymentDto } from './payments.dto';
 import { CurrentUser, Public, RequirePermissions } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
 
@@ -14,7 +14,7 @@ export class PaymentsController {
     private readonly payments: PaymentsService,
     private readonly reminderService: PaymentReminderService,
     private readonly invoices: InvoicesService,
-  ) {}
+  ) { }
 
   @Get('payments')
   list(
@@ -46,6 +46,26 @@ export class PaymentsController {
   @Post('payments/:id/checkout')
   checkout(@CurrentUser() user: AuthUser, @Param('id', ParseIntPipe) id: number) {
     return this.payments.startCheckout(user, id);
+  }
+
+  @Post('payments/:id/verify-razorpay')
+  verifyRazorpay(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: VerifyRazorpayPaymentDto,
+    @Req() req: Request,
+  ) {
+    return this.payments.verifyRazorpayPayment(user, id, dto, req);
+  }
+
+  @Public()
+  @Get('payments/config')
+  config() {
+    return {
+      provider: 'razorpay',
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_dummyKeyId123',
+      currency: 'INR',
+    };
   }
 
   @Post('payments/:id/pay')

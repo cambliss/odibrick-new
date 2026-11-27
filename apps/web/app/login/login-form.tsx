@@ -4,13 +4,14 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, ErrorNote } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
+import { GoogleAuthButton } from '@/components/auth/google-auth-button';
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({ next, initialError }: { next?: string; initialError?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -40,57 +41,61 @@ export function LoginForm({ next }: { next?: string }) {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
-      <div>
-        <label className="label" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          autoComplete="email"
-          required
-          aria-invalid={!!error}
-          aria-describedby={error ? 'login-error' : undefined}
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className="field"
-          placeholder="you@example.com"
-        />
-      </div>
+    <div className="space-y-4">
+      <GoogleAuthButton mode="login" next={next} onError={setError} />
 
-      <div>
-        <div className="flex items-baseline justify-between">
-          <label className="label" htmlFor="password">
-            Password
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className="label" htmlFor="email">
+            Email
           </label>
-          <a href="/support" className="text-[13px] text-muted hover:text-ink hover:underline">
-            Forgot password?
-          </a>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            aria-invalid={!!error}
+            aria-describedby={error ? 'login-error' : undefined}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="field"
+            placeholder="you@example.com"
+          />
         </div>
-        <input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          aria-invalid={!!error}
-          aria-describedby={error ? 'login-error' : undefined}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className="field"
-        />
-      </div>
 
-      {error ? <ErrorNote id="login-error">{error}</ErrorNote> : null}
+        <div>
+          <div className="flex items-baseline justify-between">
+            <label className="label" htmlFor="password">
+              Password
+            </label>
+            <a href="/support" className="text-[13px] text-muted hover:text-ink hover:underline">
+              Forgot password?
+            </a>
+          </div>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            aria-invalid={!!error}
+            aria-describedby={error ? 'login-error' : undefined}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="field"
+          />
+        </div>
 
-      <Button type="submit" disabled={busy} full size="lg">
-        {busy ? 'Signing in…' : 'Sign in'}
-      </Button>
+        {error ? <ErrorNote id="login-error">{error}</ErrorNote> : null}
 
-      <p className="hint">
-        Sessions use secure, http-only cookies. Your token is never stored where a script on the page
-        could read it.
-      </p>
-    </form>
+        <Button type="submit" disabled={busy} full size="lg">
+          {busy ? 'Signing in…' : 'Sign in'}
+        </Button>
+
+        <p className="hint">
+          Sessions use secure, http-only cookies. Your token is never stored where a script on the page
+          could read it.
+        </p>
+      </form>
+    </div>
   );
 }

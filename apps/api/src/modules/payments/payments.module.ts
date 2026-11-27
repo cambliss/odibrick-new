@@ -15,6 +15,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { PAYMENT_PROVIDER } from './payments.tokens';
 import { ManualPaymentProvider } from './providers/manual.provider';
 import { GatewayPaymentProvider } from './providers/gateway.provider';
+import { RazorpayPaymentProvider } from './providers/razorpay.provider';
 
 @Module({
   imports: [NotificationsModule],
@@ -34,12 +35,23 @@ import { GatewayPaymentProvider } from './providers/gateway.provider';
     CommercialOperationsService,
     ManualPaymentProvider,
     GatewayPaymentProvider,
+    RazorpayPaymentProvider,
     {
       // Swapping providers is a config change, not a code change.
+      // Default to RazorpayPaymentProvider unless explicitly set to manual or gateway
       provide: PAYMENT_PROVIDER,
-      inject: [ConfigService, ManualPaymentProvider, GatewayPaymentProvider],
-      useFactory: (config: ConfigService, manual: ManualPaymentProvider, gateway: GatewayPaymentProvider) =>
-        config.get('providers.payment') === 'manual' ? manual : gateway,
+      inject: [ConfigService, ManualPaymentProvider, RazorpayPaymentProvider, GatewayPaymentProvider],
+      useFactory: (
+        config: ConfigService,
+        manual: ManualPaymentProvider,
+        razorpay: RazorpayPaymentProvider,
+        gateway: GatewayPaymentProvider,
+      ) => {
+        const providerName = config.get('providers.payment');
+        if (providerName === 'manual') return manual;
+        if (providerName === 'gateway') return gateway;
+        return razorpay;
+      },
     },
   ],
   exports: [

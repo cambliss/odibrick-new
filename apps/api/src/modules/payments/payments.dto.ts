@@ -13,3 +13,9 @@ export class RefundDto {
   @IsOptional() @IsString() @MaxLength(120) bankReference?: string;
   @IsOptional() @IsString() @MaxLength(500) reason?: string;
 }
+
+export class VerifyRazorpayPaymentDto {
+  @IsString() razorpay_payment_id!: string;
+  @IsString() razorpay_order_id!: string;
+  @IsString() razorpay_signature!: string;
+}

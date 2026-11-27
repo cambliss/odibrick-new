@@ -17,7 +17,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AccessTokenPayload, AuthUser, OtpChannel, RoleCode } from '../../common/auth/auth.types';
 import { newPublicId } from '../../common/util/ids';
 import { decryptField, encryptField, randomToken, safeEqual, sha256 } from '../../common/util/crypto';
-import { LoginDto, RegisterDto, SendOtpDto, VerifyOtpDto } from './auth.dto';
+import { GoogleAuthDto, LoginDto, RegisterDto, SendOtpDto, VerifyOtpDto } from './auth.dto';
 
 const SELF_SERVICE_ROLES: RoleCode[] = ['TENANT', 'OWNER', 'AGENT', 'BUILDER'];
 const MAX_FAILED_ATTEMPTS = 8;
@@ -246,6 +246,266 @@ export class AuthService {
       [user.id],
     );
     await this.audit.record({ actor: user, action: 'auth.password_changed', objectType: 'user', objectId: user.id, req });
+  }
+
+  // ------------------------------------------------------------- google oauth
+  getGoogleConfig(): { enabled: boolean; clientId?: string } {
+    const clientId = this.config.get<string>('auth.googleClientId');
+    return {
+      enabled: Boolean(clientId && clientId.trim().length > 0),
+      clientId: clientId ? clientId.trim() : undefined,
+    };
+  }
+
+  getGoogleAuthUrl(role?: string, next?: string): string {
+    const clientId = this.config.get<string>('auth.googleClientId');
+    if (!clientId) {
+      throw new BadRequestException(
+        'Google OAuth is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your environment.',
+      );
+    }
+    const webUrl = this.config.get<string>('app.webUrl') ?? 'http://localhost:3000';
+    const callbackUrl =
+      this.config.get<string>('auth.googleCallbackUrl') || `${webUrl}/api/auth/google/callback`;
+
+    const statePayload = JSON.stringify({
+      role: role && SELF_SERVICE_ROLES.includes(role as RoleCode) ? role : 'TENANT',
+      next: next || '/dashboard',
+    });
+    const state = Buffer.from(statePayload).toString('base64url');
+
+    const params = new URLSearchParams({
+      client_id: clientId.trim(),
+      redirect_uri: callbackUrl,
+      response_type: 'code',
+      scope: 'openid email profile',
+      access_type: 'offline',
+      prompt: 'select_account',
+      state,
+    });
+
+    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+  }
+
+  async handleGoogleCallback(
+    code: string,
+    stateStr?: string,
+    req?: Request,
+  ): Promise<{ user: AuthUser; verificationRequired: boolean; nextUrl: string } & TokenPair> {
+    const clientId = this.config.get<string>('auth.googleClientId');
+    const clientSecret = this.config.get<string>('auth.googleClientSecret');
+    const webUrl = this.config.get<string>('app.webUrl') ?? 'http://localhost:3000';
+    const callbackUrl =
+      this.config.get<string>('auth.googleCallbackUrl') || `${webUrl}/api/auth/google/callback`;
+
+    if (!clientId || !clientSecret) {
+      throw new BadRequestException('Google authentication credentials are not configured on the server.');
+    }
+
+    let role: RoleCode = 'TENANT';
+    let nextUrl = '/dashboard';
+    if (stateStr) {
+      try {
+        const decoded = JSON.parse(Buffer.from(stateStr, 'base64url').toString('utf8'));
+        if (decoded.role && SELF_SERVICE_ROLES.includes(decoded.role)) role = decoded.role;
+        if (decoded.next && typeof decoded.next === 'string' && decoded.next.startsWith('/')) {
+          nextUrl = decoded.next;
+        }
+      } catch {
+        // use defaults on decode error
+      }
+    }
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId.trim(),
+        client_secret: clientSecret.trim(),
+        redirect_uri: callbackUrl,
+        grant_type: 'authorization_code',
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      this.logger.error(`Google token exchange failed: ${tokenRes.status} ${errText}`);
+      throw new UnauthorizedException('Failed to exchange authorization code with Google.');
+    }
+
+    const tokenData = (await tokenRes.json()) as { access_token?: string; id_token?: string };
+    if (!tokenData.access_token) {
+      throw new UnauthorizedException('No access token returned by Google.');
+    }
+
+    const userinfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+
+    if (!userinfoRes.ok) {
+      throw new UnauthorizedException('Failed to retrieve user profile from Google.');
+    }
+
+    const profile = (await userinfoRes.json()) as {
+      email?: string;
+      email_verified?: boolean;
+      name?: string;
+      picture?: string;
+    };
+
+    if (!profile.email) {
+      throw new BadRequestException('Google account does not have an associated email address.');
+    }
+
+    const authResult = await this.authenticateGoogleUser(
+      {
+        email: profile.email,
+        name: profile.name,
+        picture: profile.picture,
+      },
+      role,
+      req,
+    );
+
+    return { ...authResult, nextUrl };
+  }
+
+  async loginWithGoogle(
+    dto: GoogleAuthDto,
+    req?: Request,
+  ): Promise<{ user: AuthUser; verificationRequired: boolean } & TokenPair> {
+    if (!dto.idToken && !dto.code) {
+      throw new BadRequestException('Either idToken or code must be provided.');
+    }
+
+    let profile: { email: string; name?: string; picture?: string };
+
+    if (dto.idToken) {
+      const verifyRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(dto.idToken)}`);
+      if (!verifyRes.ok) {
+        throw new UnauthorizedException('Invalid Google ID token.');
+      }
+      const tokenInfo = (await verifyRes.json()) as {
+        email?: string;
+        email_verified?: string | boolean;
+        name?: string;
+        picture?: string;
+        aud?: string;
+      };
+      if (!tokenInfo.email) {
+        throw new BadRequestException('Google token does not contain an email address.');
+      }
+      profile = {
+        email: tokenInfo.email,
+        name: tokenInfo.name,
+        picture: tokenInfo.picture,
+      };
+    } else {
+      const result = await this.handleGoogleCallback(dto.code!, undefined, req);
+      return result;
+    }
+
+    return this.authenticateGoogleUser(profile, dto.role ?? 'TENANT', req);
+  }
+
+  private async authenticateGoogleUser(
+    profile: { email: string; name?: string; picture?: string },
+    requestedRole: RoleCode = 'TENANT',
+    req?: Request,
+  ): Promise<{ user: AuthUser; verificationRequired: boolean } & TokenPair> {
+    const email = profile.email.trim().toLowerCase();
+    const existing = await this.db.one<any>(
+      `SELECT id, status, email_verified_at, phone_verified_at FROM users WHERE email = ? AND deleted_at IS NULL LIMIT 1`,
+      [email],
+    );
+
+    let userId: number;
+
+    if (existing) {
+      if (existing.status === 'SUSPENDED' || existing.status === 'DISABLED') {
+        throw new ForbiddenException('This account is not active. Contact Odibrick support.');
+      }
+      userId = existing.id;
+      // Mark email as verified if Google confirmed it
+      await this.db.execute(
+        `UPDATE users
+            SET email_verified_at = COALESCE(email_verified_at, NOW()),
+                last_login_at = NOW(),
+                last_login_ip = ?,
+                failed_attempts = 0,
+                locked_until = NULL
+          WHERE id = ?`,
+        [this.ipOf(req), userId],
+      );
+    } else {
+      const role = SELF_SERVICE_ROLES.includes(requestedRole) ? requestedRole : 'TENANT';
+      const fullName = profile.name?.trim() || email.split('@')[0];
+      const publicId = newPublicId();
+      const ip = this.ipOf(req);
+      const randomPassword = randomToken(32);
+      const passwordHash = await this.hashPassword(randomPassword);
+
+      userId = await this.db.transaction(async (conn) => {
+        const [res]: any = await conn.execute(
+          `INSERT INTO users (
+             public_id, email, phone, password_hash, full_name, status,
+             email_verified_at, phone_verified_at, terms_accepted_at, terms_version, terms_accepted_ip
+           )
+           VALUES (?, ?, NULL, ?, ?, 'ACTIVE', NOW(), NULL, NOW(), 'v1.0', ?)`,
+          [publicId, email, passwordHash, fullName, ip],
+        );
+        const newId = res.insertId as number;
+
+        await conn.execute(
+          'INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE code = ?',
+          [newId, role],
+        );
+
+        await conn.execute(
+          'INSERT INTO user_profiles (user_id, avatar_path) VALUES (?, ?)',
+          [newId, profile.picture ?? null],
+        );
+
+        switch (role) {
+          case 'OWNER':
+            await conn.execute('INSERT INTO owners (user_id) VALUES (?)', [newId]);
+            break;
+          case 'TENANT':
+            await conn.execute('INSERT INTO tenants (user_id) VALUES (?)', [newId]);
+            break;
+          case 'AGENT':
+            await conn.execute('INSERT INTO agents (user_id, agency_name) VALUES (?, ?)', [newId, fullName]);
+            break;
+          case 'BUILDER':
+            await conn.execute('INSERT INTO builders (user_id, company_name) VALUES (?, ?)', [newId, fullName]);
+            break;
+        }
+
+        return newId;
+      });
+
+      await this.audit.record({
+        action: 'auth.google_registered',
+        objectType: 'user',
+        objectId: userId,
+        metadata: { email, role, provider: 'google' },
+        req,
+      });
+    }
+
+    const user = await this.loadAuthUser(userId);
+    await this.audit.record({
+      actor: user,
+      action: 'auth.google_login',
+      objectType: 'user',
+      objectId: userId,
+      metadata: { email, provider: 'google' },
+      req,
+    });
+
+    const tokens = await this.issueTokens(user, req);
+    return { user, verificationRequired: !user.contactVerified, ...tokens };
   }
 
   // -------------------------------------------------------- contact OTP engine

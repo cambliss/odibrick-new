@@ -11,7 +11,7 @@ import { randomToken } from '../../common/util/crypto';
 import { pageParams, paginate } from '../../common/util/pagination';
 import { PAYMENT_PROVIDER } from './payments.tokens';
 import { PaymentProvider } from './providers/payment-provider.interface';
-import { RecordPaymentDto, RefundDto } from './payments.dto';
+import { RecordPaymentDto, RefundDto, VerifyRazorpayPaymentDto } from './payments.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -451,6 +451,93 @@ export class PaymentsService {
       status: 'PROCESSING',
       referenceCode: payment.reference_code,
       message: 'Payment reference submitted and pending operator confirmation.',
+    };
+  }
+
+  /** Verifies a client-side Razorpay checkout payment and confirms settlement */
+  async verifyRazorpayPayment(
+    user: AuthUser,
+    paymentId: number,
+    dto: VerifyRazorpayPaymentDto,
+    req?: Request,
+  ) {
+    const payment = await this.assertPayer(user, paymentId);
+    if (payment.status === 'PAID') {
+      return { success: true, paymentId: payment.id, status: 'PAID', message: 'Payment already settled.' };
+    }
+
+    // Verify cryptographic signature if provider has verifyPaymentSignature
+    if (
+      'verifyPaymentSignature' in this.provider &&
+      typeof (this.provider as any).verifyPaymentSignature === 'function'
+    ) {
+      const valid = (this.provider as any).verifyPaymentSignature(
+        dto.razorpay_order_id,
+        dto.razorpay_payment_id,
+        dto.razorpay_signature,
+      );
+      if (!valid) {
+        throw new BadRequestException('Razorpay payment signature verification failed.');
+      }
+    }
+
+    const { newlyMarked, tenancyTransition, tenancy } = await this.db.transaction(async (conn) => {
+      const [locked]: any = await conn.execute(
+        'SELECT id, status FROM payments WHERE id = ? FOR UPDATE',
+        [paymentId],
+      );
+      if (locked?.length && locked[0].status === 'PAID') {
+        return { newlyMarked: false, tenancyTransition: null, tenancy: null };
+      }
+
+      await conn.execute(
+        `INSERT INTO payment_transactions (
+           payment_id, txn_reference, direction, provider, provider_order_id,
+           provider_txn_id, method, amount, currency, status, idempotency_key
+         )
+         VALUES (?, ?, 'COLLECTION', 'razorpay', ?, ?, 'RAZORPAY', ?, ?, 'SUCCESS', ?)
+         ON DUPLICATE KEY UPDATE status = 'SUCCESS', provider_txn_id = VALUES(provider_txn_id), method = 'RAZORPAY'`,
+        [
+          payment.id,
+          `TXN-${randomToken(8).toUpperCase()}`,
+          dto.razorpay_order_id,
+          dto.razorpay_payment_id,
+          Number(payment.total_amount),
+          payment.currency,
+          `rzp:${dto.razorpay_order_id}:${dto.razorpay_payment_id}`,
+        ],
+      );
+
+      return this.applyPaymentSuccess(conn, payment.id, `razorpay:${dto.razorpay_payment_id}`);
+    });
+
+    await this.audit.record({
+      actor: user,
+      action: 'payment.razorpay_settled',
+      objectType: 'payment',
+      objectId: payment.id,
+      metadata: {
+        razorpayPaymentId: dto.razorpay_payment_id,
+        razorpayOrderId: dto.razorpay_order_id,
+        amount: Number(payment.total_amount),
+        currency: payment.currency,
+      },
+      req,
+    });
+
+    if (newlyMarked) {
+      try {
+        await this.dispatchPaymentNotifications(payment, tenancyTransition, tenancy);
+      } catch (err: any) {
+        this.logger.error(`Payment notification dispatch failed: ${err.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      paymentId: payment.id,
+      status: 'PAID',
+      txnId: dto.razorpay_payment_id,
     };
   }
 

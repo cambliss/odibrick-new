@@ -37,6 +37,9 @@ export default () => ({
     refreshTtlDays: parseInt(process.env.JWT_REFRESH_TTL_DAYS ?? '30', 10),
     pepper: process.env.PASSWORD_PEPPER ?? '',
     fieldKey: process.env.FIELD_ENCRYPTION_KEY ?? '',
+    googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+    googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL ?? '',
   },
   storage: {
     driver: ((process.env.STORAGE_DRIVER ?? 'LOCAL').toUpperCase()) as 'LOCAL' | 'S3',

@@ -1,9 +1,17 @@
-import { Body, Controller, Get, HttpCode, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { ChangePasswordDto, LoginDto, RefreshDto, RegisterDto, SendOtpDto, VerifyOtpDto } from './auth.dto';
+import {
+  ChangePasswordDto,
+  GoogleAuthDto,
+  LoginDto,
+  RefreshDto,
+  RegisterDto,
+  SendOtpDto,
+  VerifyOtpDto,
+} from './auth.dto';
 import { AllowUnverifiedContact, CurrentUser, Public } from '../../common/auth/decorators';
 import { AuthUser } from '../../common/auth/auth.types';
 
@@ -33,6 +41,74 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const result = await this.auth.login(dto, req);
+    this.setCookies(res, result.accessToken, result.refreshToken);
+    return {
+      user: result.user,
+      verificationRequired: result.verificationRequired,
+      expiresIn: result.expiresIn,
+    };
+  }
+
+  @Public()
+  @Get('google/config')
+  googleConfig() {
+    return this.auth.getGoogleConfig();
+  }
+
+  @Public()
+  @Get('google')
+  googleAuth(
+    @Query('role') role: string | undefined,
+    @Query('next') next: string | undefined,
+    @Res() res: Response,
+  ) {
+    try {
+      const url = this.auth.getGoogleAuthUrl(role, next);
+      return res.redirect(url);
+    } catch (err: any) {
+      const target = next
+        ? `/login?next=${encodeURIComponent(next)}&error=${encodeURIComponent(err.message)}`
+        : `/login?error=${encodeURIComponent(err.message)}`;
+      return res.redirect(target);
+    }
+  }
+
+  @Public()
+  @Get('google/callback')
+  async googleCallback(
+    @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
+    @Query('error') error: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    if (error || !code) {
+      const msg = error
+        ? `Google sign-in was cancelled or failed (${error}).`
+        : 'Missing authorization code from Google.';
+      return res.redirect(`/login?error=${encodeURIComponent(msg)}`);
+    }
+    try {
+      const result = await this.auth.handleGoogleCallback(code, state, req);
+      this.setCookies(res, result.accessToken, result.refreshToken);
+      return res.redirect(result.nextUrl || '/dashboard');
+    } catch (err: any) {
+      return res.redirect(
+        `/login?error=${encodeURIComponent(err.message ?? 'Google authentication failed.')}`,
+      );
+    }
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('google')
+  async loginWithGoogle(
+    @Body() dto: GoogleAuthDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.loginWithGoogle(dto, req);
     this.setCookies(res, result.accessToken, result.refreshToken);
     return {
       user: result.user,

@@ -73,3 +73,10 @@ export class ChangePasswordDto {
   @IsString() currentPassword!: string;
   @IsString() @MinLength(10) @MaxLength(128) newPassword!: string;
 }
+
+export class GoogleAuthDto {
+  @IsOptional() @IsString() idToken?: string;
+  @IsOptional() @IsString() code?: string;
+  @IsOptional() @IsIn(['TENANT', 'OWNER', 'AGENT', 'BUILDER']) role?: RoleCode;
+  @IsOptional() @IsString() next?: string;
+}

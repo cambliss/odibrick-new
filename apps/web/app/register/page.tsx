@@ -30,7 +30,7 @@ const ROLE_COPY: Record<string, { title: string; body: string }> = {
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ role?: string; next?: string }>;
+  searchParams: Promise<{ role?: string; next?: string; error?: string }>;
 }) {
   const sp = await searchParams;
   const role = (sp.role ?? 'TENANT').toUpperCase();
@@ -74,7 +74,7 @@ export default async function RegisterPage({
           </p>
 
           <div className="mt-8">
-            <RegisterForm defaultRole={role} next={sp.next} />
+            <RegisterForm defaultRole={role} next={sp.next} initialError={sp.error} />
           </div>
         </div>
       </section>
